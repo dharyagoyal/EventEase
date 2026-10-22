@@ -237,6 +237,66 @@ export const getEventAttendees = async (req, res) => {
   }
 };
 
+// DELETE /api/v1/events/:id/registrations
+export const deleteRegistration = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { email } = req.body;
+
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid event ID",
+      });
+    }
+
+    if (typeof email !== "string" || !email.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is required",
+      });
+    }
+
+    const event = await Event.findById(id);
+
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: "Event not found",
+      });
+    }
+
+    const registration = await Registration.findOneAndDelete({
+      event: id,
+      email: email.trim().toLowerCase(),
+    });
+
+    if (!registration) {
+      return res.status(404).json({
+        success: false,
+        message: "Registration not found",
+      });
+    }
+
+    await Event.updateOne(
+      { _id: id, registeredCount: { $gt: 0 } },
+      { $inc: { registeredCount: -1 } },
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Registration deleted successfully",
+    });
+  } catch (error) {
+    console.error("Delete registration error:", error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to delete registration",
+    });
+  }
+};
+
 export const updateEvent = async (req, res) => {
   try {
     const { id } = req.params;
