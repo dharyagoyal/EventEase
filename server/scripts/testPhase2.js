@@ -495,6 +495,78 @@ async function runTests() {
       "CORS exposedHeaders includes Content-Disposition"
     );
 
+    console.log("\n--- TEST 10: GET /events/:id/attendees - Extended Fields & Backward Compatibility ---");
+
+    // 10a: Reject unauthenticated request
+    const noAuthAttRes = await fetch(`${baseUrl}/events/${soloEvent._id}/attendees`);
+    assert(noAuthAttRes.status === 401, "GET /events/:id/attendees requires auth (401)");
+
+    // 10b: Reject non-owner request (ownership check)
+    const forbiddenAttRes = await fetch(`${baseUrl}/events/${soloEvent._id}/attendees`, {
+      headers: { Authorization: `Bearer ${token2}` },
+    });
+    assert(forbiddenAttRes.status === 403, "Non-owner cannot view event attendees (403)");
+
+    // 10c: Reject invalid ObjectId
+    const invalidIdAttRes = await fetch(`${baseUrl}/events/invalid_id/attendees`, {
+      headers: { Authorization: `Bearer ${token1}` },
+    });
+    assert(invalidIdAttRes.status === 400, "Invalid ObjectId returns 400 for attendees endpoint");
+
+    // 10d: Non-existent event
+    const notFoundAttRes = await fetch(`${baseUrl}/events/${new mongoose.Types.ObjectId()}/attendees`, {
+      headers: { Authorization: `Bearer ${token1}` },
+    });
+    assert(notFoundAttRes.status === 404, "Non-existent event returns 404 for attendees endpoint");
+
+    // 10e: Owner fetches solo event attendees (including solo attendees + oldReg)
+    const soloAttRes = await fetch(`${baseUrl}/events/${soloEvent._id}/attendees`, {
+      headers: { Authorization: `Bearer ${token1}` },
+    });
+    assert(soloAttRes.status === 200, "Owner successfully fetches solo event attendees");
+    const soloAttData = await soloAttRes.json();
+    assert(soloAttData.success === true, "Response has success: true");
+    assert(Array.isArray(soloAttData.data), "Response data is an array");
+    assert(soloAttData.count === 3, "Count matches 3 registrations (2 solo + 1 old)");
+
+    const soloUser1 = soloAttData.data.find((a) => a.email === "solo1@example.com");
+    assert(Boolean(soloUser1), "Solo user 1 is present");
+    assert(soloUser1.name === "Solo User 1", "Solo user 1 has name");
+    assert(soloUser1.usn === "1BM22CS001", "Solo user 1 has USN");
+    assert(soloUser1.phone === "9876543210", "Solo user 1 has phone");
+    assert(soloUser1.yearOfStudy === 3, "Solo user 1 has yearOfStudy");
+
+    // Check backward compatibility for old attendee without usn/phone/yearOfStudy
+    const oldUser = soloAttData.data.find((a) => a.email === "old.attendee@example.com");
+    assert(Boolean(oldUser), "Old attendee without usn/phone/yearOfStudy is returned");
+    assert(oldUser.name === "Old Attendee", "Old attendee has name");
+    assert(oldUser.usn === undefined || oldUser.usn === null, "Old attendee usn is undefined/null");
+    assert(oldUser.phone === undefined || oldUser.phone === null, "Old attendee phone is undefined/null");
+    assert(oldUser.yearOfStudy === undefined || oldUser.yearOfStudy === null, "Old attendee yearOfStudy is undefined/null");
+
+    // 10f: Owner fetches team event attendees
+    const teamAttRes = await fetch(`${baseUrl}/events/${teamEvent._id}/attendees`, {
+      headers: { Authorization: `Bearer ${token1}` },
+    });
+    assert(teamAttRes.status === 200, "Owner successfully fetches team event attendees");
+    const teamAttData = await teamAttRes.json();
+    assert(teamAttData.count === 1, "Team event has 1 registration");
+    const teamReg = teamAttData.data[0];
+    assert(teamReg.teamName === "Neural Ninjas", "Team registration includes teamName");
+    assert(teamReg.name === "Team Lead", "Team leader name is present");
+    assert(teamReg.email === "lead@example.com", "Team leader email is present");
+    assert(teamReg.usn === "1BM22AI010", "Team leader USN is present");
+    assert(teamReg.phone === "9876543212", "Team leader phone is present");
+    assert(teamReg.yearOfStudy === 4, "Team leader yearOfStudy is present");
+    assert(Array.isArray(teamReg.teamMembers) && teamReg.teamMembers.length === 2, "teamMembers array contains 2 members");
+    assert(teamReg.teamMembers[0].name === "Member One", "Member 1 has name");
+    assert(teamReg.teamMembers[0].usn === "1BM22AI011", "Member 1 has USN");
+    assert(teamReg.teamMembers[0].email === "mem1@example.com", "Member 1 has email");
+    assert(teamReg.teamMembers[0].phone === "9876543213", "Member 1 has phone");
+    assert(teamReg.teamMembers[0].yearOfStudy === 4, "Member 1 has yearOfStudy");
+    assert(teamReg.teamMembers[1].name === "Member Two", "Member 2 has name");
+    assert(teamReg.teamMembers[1].usn === "1BM22AI012", "Member 2 has USN");
+
     console.log("\nALL PHASE 2-3 TESTS PASSED SUCCESSFULLY!\n");
   } catch (err) {
     console.error("Test execution failed:", err);
