@@ -884,3 +884,306 @@ export const removeEventAttendee = async (req, res) => {
     }
   }
 };
+
+// GET /api/v1/events/analytics/overview — Organizer analytics overview
+export const getOrganizerAnalytics = async (req, res) => {
+  try {
+    const rawUserId = req.user._id;
+    const organizerId = mongoose.isValidObjectId(rawUserId)
+      ? new mongoose.Types.ObjectId(String(rawUserId))
+      : rawUserId;
+
+    const pipeline = [
+      {
+        $match: {
+          $or: [
+            { createdBy: organizerId },
+            { createdBy: String(rawUserId) },
+          ],
+        },
+      },
+      {
+        $sort: { date: 1, createdAt: 1 },
+      },
+      {
+        $project: {
+          _id: 1,
+          title: 1,
+          date: 1,
+          capacity: { $ifNull: ["$capacity", 0] },
+          registered: { $ifNull: ["$registeredCount", 0] },
+          isTeamEvent: { $ifNull: ["$isTeamEvent", false] },
+          seatsLeft: {
+            $max: [
+              0,
+              {
+                $subtract: [
+                  { $ifNull: ["$capacity", 0] },
+                  { $ifNull: ["$registeredCount", 0] },
+                ],
+              },
+            ],
+          },
+          fillPercent: {
+            $cond: [
+              { $gt: [{ $ifNull: ["$capacity", 0] }, 0] },
+              {
+                $round: [
+                  {
+                    $multiply: [
+                      {
+                        $divide: [
+                          { $ifNull: ["$registeredCount", 0] },
+                          { $ifNull: ["$capacity", 1] },
+                        ],
+                      },
+                      100,
+                    ],
+                  },
+                  2,
+                ],
+              },
+              0,
+            ],
+          },
+        },
+      },
+      {
+        $facet: {
+          perEvent: [{ $match: {} }],
+          totals: [
+            {
+              $group: {
+                _id: null,
+                totalEvents: { $sum: 1 },
+                totalRegistrations: { $sum: "$registered" },
+                totalSeatsRemaining: { $sum: "$seatsLeft" },
+              },
+            },
+          ],
+        },
+      },
+    ];
+
+    const result = await Event.aggregate(pipeline);
+
+    const facetData = (result && result[0]) || { perEvent: [], totals: [] };
+    const totals = (facetData.totals && facetData.totals[0]) || {
+      totalEvents: 0,
+      totalRegistrations: 0,
+      totalSeatsRemaining: 0,
+    };
+
+    const overview = {
+      totalEvents: totals.totalEvents || 0,
+      totalRegistrations: totals.totalRegistrations || 0,
+      totalSeatsRemaining: totals.totalSeatsRemaining || 0,
+      perEvent: facetData.perEvent || [],
+    };
+
+    return res.status(200).json({
+      success: true,
+      ...overview,
+      data: overview,
+    });
+  } catch (error) {
+    console.error("Analytics overview error:", error.message);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch analytics overview",
+    });
+  }
+};
+
+function slugifyTitle(text) {
+  if (!text) return "event";
+  const slug = String(text)
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return slug || "event";
+}
+
+function formatRegisteredDate(date) {
+  if (!date) return "";
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return "";
+
+  const day = String(d.getDate()).padStart(2, "0");
+  const months = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
+  const month = months[d.getMonth()];
+  const year = d.getFullYear();
+
+  return `${day} ${month} ${year}`;
+}
+
+function escapeCsvCell(value) {
+  if (value === null || value === undefined) {
+    return "";
+  }
+
+  let str = String(value);
+
+  // CSV formula injection defense:
+  // prefix any cell starting with = + - @ with a single quote
+  if (/^[=+\-@]/.test(str)) {
+    str = "'" + str;
+  }
+
+  // Escape commas, quotes and newlines
+  if (
+    str.includes('"') ||
+    str.includes(",") ||
+    str.includes("\n") ||
+    str.includes("\r")
+  ) {
+    str = `"${str.replace(/"/g, '""')}"`;
+  }
+
+  return str;
+}
+
+// GET /api/v1/events/:id/attendees/export — Export event attendees as CSV
+export const exportEventAttendeesCSV = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid event ID",
+      });
+    }
+
+    const event = await Event.findById(id);
+
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: "Event not found",
+      });
+    }
+
+    if (!event.createdBy || String(event.createdBy) !== String(req.user._id)) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not authorized to export attendees for this event",
+      });
+    }
+
+    const registrations = await Registration.find({ event: id }).sort({
+      createdAt: 1,
+    });
+
+    const slug = slugifyTitle(event.title);
+    const filename = `${slug}-attendees.csv`;
+
+    const headers = [
+      "Team Name",
+      "Role",
+      "Name",
+      "USN",
+      "Email",
+      "Phone",
+      "Year",
+      "Registered On",
+    ];
+
+    const lines = [];
+    lines.push(headers.map(escapeCsvCell).join(","));
+
+    for (const reg of registrations) {
+      const isTeam =
+        Boolean(event.isTeamEvent) ||
+        Boolean(reg.teamName) ||
+        (Array.isArray(reg.teamMembers) && reg.teamMembers.length > 0);
+
+      if (isTeam) {
+        // Leader row
+        lines.push(
+          [
+            reg.teamName || "",
+            "Leader",
+            reg.name || "",
+            reg.usn || "",
+            reg.email || "",
+            reg.phone != null ? String(reg.phone) : "",
+            reg.yearOfStudy != null ? String(reg.yearOfStudy) : "",
+            formatRegisteredDate(reg.createdAt),
+          ]
+            .map(escapeCsvCell)
+            .join(",")
+        );
+
+        // Member rows
+        if (Array.isArray(reg.teamMembers)) {
+          for (const member of reg.teamMembers) {
+            if (!member) continue;
+            lines.push(
+              [
+                reg.teamName || "",
+                "Member",
+                member.name || "",
+                member.usn || "",
+                member.email || "",
+                member.phone != null ? String(member.phone) : "",
+                member.yearOfStudy != null ? String(member.yearOfStudy) : "",
+                formatRegisteredDate(reg.createdAt),
+              ]
+                .map(escapeCsvCell)
+                .join(",")
+            );
+          }
+        }
+      } else {
+        // Solo registration
+        lines.push(
+          [
+            "",
+            "Solo",
+            reg.name || "",
+            reg.usn || "",
+            reg.email || "",
+            reg.phone != null ? String(reg.phone) : "",
+            reg.yearOfStudy != null ? String(reg.yearOfStudy) : "",
+            formatRegisteredDate(reg.createdAt),
+          ]
+            .map(escapeCsvCell)
+            .join(",")
+        );
+      }
+    }
+
+    const csvBody = lines.join("\r\n");
+    const csvWithBom = `\uFEFF${csvBody}`;
+
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${filename}"`
+    );
+
+    return res.status(200).send(csvWithBom);
+  } catch (error) {
+    console.error("Export attendees CSV error:", error.message);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to export attendees",
+    });
+  }
+};
+

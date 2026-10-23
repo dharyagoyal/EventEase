@@ -194,6 +194,8 @@ The API uses the `/api/v1` prefix.
 | Method | Endpoint | Access |
 |---|---|---|
 | GET | `/events` | Public |
+| GET | `/events/analytics/overview` | Authenticated organizer |
+| GET | `/events/:id/attendees/export` | Authenticated event owner |
 | GET | `/events/:id` | Public |
 | POST | `/events` | Authenticated organizer |
 | PATCH | `/events/:id` | Authenticated owner |

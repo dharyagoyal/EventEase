@@ -9,11 +9,15 @@ import {
   updateEvent,
   deleteEvent,
   removeEventAttendee,
+  getOrganizerAnalytics,
+  exportEventAttendeesCSV,
 } from "../controllers/eventController.js";
 
 const router = express.Router();
 
 router.get("/", getEvents);
+router.get("/analytics/overview", authMiddleware, getOrganizerAnalytics);
+router.get("/:id/attendees/export", authMiddleware, exportEventAttendeesCSV);
 router.get("/:id", getEventById);
 router.post("/", authMiddleware, createEvent);
 router.post("/:id/register", registerForEvent);
