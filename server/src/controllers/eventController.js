@@ -380,3 +380,138 @@ export const deleteEvent = async (req, res) => {
     });
   }
 };
+
+export const removeEventAttendee = async (req, res) => {
+  let session = null;
+
+  try {
+    const { id, attendeeId } = req.params;
+
+    if (
+      !mongoose.isValidObjectId(id) ||
+      !mongoose.isValidObjectId(attendeeId)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid event or attendee ID",
+      });
+    }
+
+    const event = await Event.findById(id);
+
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: "Event not found",
+      });
+    }
+
+    if (
+      !event.createdBy ||
+      event.createdBy.toString() !== req.user._id.toString()
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not authorized to remove attendees from this event",
+      });
+    }
+
+    // Use a MongoDB transaction if connected and supported by the deployment (e.g. replica set/Atlas)
+    if (mongoose.connection.readyState === 1) {
+      try {
+        session = await mongoose.startSession();
+        session.startTransaction();
+      } catch {
+        session = null;
+      }
+    }
+
+    const registration = await Registration.findOneAndDelete(
+      {
+        _id: attendeeId,
+        event: id,
+      },
+      session ? { session } : {}
+    );
+
+    if (!registration) {
+      if (session) {
+        await session.abortTransaction();
+      }
+      return res.status(404).json({
+        success: false,
+        message: "Attendee registration not found",
+      });
+    }
+
+    try {
+      const updateResult = await Event.updateOne(
+        { _id: id, registeredCount: { $gt: 0 } },
+        { $inc: { registeredCount: -1 } },
+        session ? { session } : {}
+      );
+
+      if (updateResult.matchedCount === 0) {
+        await Event.updateOne(
+          { _id: id },
+          { $set: { registeredCount: 0 } },
+          session ? { session } : {}
+        );
+      }
+
+      if (session) {
+        await session.commitTransaction();
+      }
+    } catch (countError) {
+      if (session) {
+        await session.abortTransaction();
+      } else {
+        // Fallback rollback when transactions are not supported
+        try {
+          await Registration.create({
+            _id: registration._id,
+            event: registration.event,
+            name: registration.name,
+            email: registration.email,
+          });
+        } catch (rollbackError) {
+          console.error(
+            "Failed to restore registration after count update error:",
+            rollbackError.message
+          );
+        }
+      }
+      throw countError;
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Attendee removed successfully",
+      data: {
+        attendeeId: registration._id,
+      },
+    });
+  } catch (error) {
+    if (session) {
+      try {
+        await session.abortTransaction();
+      } catch {
+        // Session already aborted or closed
+      }
+    }
+    console.error("Remove attendee error:", error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to remove attendee",
+    });
+  } finally {
+    if (session) {
+      try {
+        await session.endSession();
+      } catch {
+        // Ignore session cleanup error
+      }
+    }
+  }
+};

@@ -9,6 +9,8 @@ import {
   Mail,
   MapPin,
   Search,
+  Trash2,
+  Loader2,
 } from "lucide-react";
 
 const API_URL = (
@@ -24,6 +26,71 @@ function Attendees() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [actionError, setActionError] = useState("");
+  const [actionSuccess, setActionSuccess] = useState("");
+  const [removingId, setRemovingId] = useState(null);
+
+  const handleRemoveAttendee = async (attendee) => {
+    if (!attendee || !attendee._id) return;
+    if (removingId) return;
+
+    const confirmed = window.confirm(
+      `Are you sure you want to remove ${attendee.name} from this event? This will cancel their registration and free up a seat.`
+    );
+
+    if (!confirmed) return;
+
+    setRemovingId(attendee._id);
+    setActionError("");
+    setActionSuccess("");
+
+    try {
+      const response = await axios.delete(
+        `${API_URL}/events/${id}/attendees/${attendee._id}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      setAttendees((currentAttendees) =>
+        currentAttendees.filter((item) => item._id !== attendee._id)
+      );
+
+      setEvent((currentEvent) => {
+        if (!currentEvent) return currentEvent;
+        const currentCount = currentEvent.registeredCount ?? 0;
+        return {
+          ...currentEvent,
+          registeredCount: Math.max(0, currentCount - 1),
+        };
+      });
+
+      setActionSuccess(
+        response.data?.message || `Removed ${attendee.name} successfully.`
+      );
+    } catch (err) {
+      if (err.response?.status === 401) {
+        setActionError("Your session has expired. Please sign in again.");
+      } else if (err.response?.status === 403) {
+        setActionError(
+          "You are not authorized to remove attendees from this event."
+        );
+      } else if (err.response?.status === 404) {
+        setActionError(
+          err.response?.data?.message || "Attendee registration not found."
+        );
+      } else {
+        setActionError(
+          err.response?.data?.message ||
+            "Failed to remove attendee. Please try again."
+        );
+      }
+    } finally {
+      setRemovingId(null);
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -183,6 +250,26 @@ function Attendees() {
             </div>
           </div>
 
+          {actionSuccess && (
+            <div
+              className="registration-feedback success"
+              style={{ marginBottom: "20px" }}
+              role="status"
+            >
+              {actionSuccess}
+            </div>
+          )}
+
+          {actionError && (
+            <div
+              className="registration-feedback error"
+              style={{ marginBottom: "20px" }}
+              role="alert"
+            >
+              {actionError}
+            </div>
+          )}
+
           <label className="attendee-search">
             <Search size={18} />
             <input
@@ -230,6 +317,7 @@ function Attendees() {
                     <th>ATTENDEE</th>
                     <th>EMAIL ADDRESS</th>
                     <th>REGISTERED ON</th>
+                    <th className="attendee-actions-header">ACTION</th>
                   </tr>
                 </thead>
 
@@ -263,6 +351,23 @@ function Attendees() {
                               }
                             )
                           : "—"}
+                      </td>
+
+                      <td className="attendee-actions-cell">
+                        <button
+                          type="button"
+                          className="dashboard-delete-button attendee-remove-button"
+                          onClick={() => handleRemoveAttendee(attendee)}
+                          disabled={Boolean(removingId)}
+                          aria-label={`Remove attendee ${attendee.name}`}
+                          title="Remove attendee"
+                        >
+                          {removingId === attendee._id ? (
+                            <Loader2 size={16} className="spinner" />
+                          ) : (
+                            <Trash2 size={16} />
+                          )}
+                        </button>
                       </td>
                     </tr>
                   ))}

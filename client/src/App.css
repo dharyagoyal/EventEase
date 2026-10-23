@@ -1330,6 +1330,36 @@ footer p {
   font-size: 20px !important;
 }
 
+.attendee-actions-header,
+.attendee-actions-cell {
+  text-align: right;
+  width: 90px;
+}
+
+.attendee-remove-button {
+  width: 34px;
+  height: 34px;
+}
+
+.attendee-remove-button:disabled,
+.dashboard-delete-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
 @media (max-width: 600px) {
   .attendee-table th,
   .attendee-table td {
