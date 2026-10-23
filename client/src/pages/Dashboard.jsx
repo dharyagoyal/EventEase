@@ -1,5 +1,6 @@
 
 import { useEffect, useState } from "react";
+import { useAuth } from "../context/AuthContext.jsx";
 import { Link } from "react-router-dom";
 import axios from "axios";
 import {
@@ -19,6 +20,7 @@ const API_URL = (
 ).replace(/\/$/, "");
 
 function Dashboard() {
+  const { token, user, logout } = useAuth();
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -40,10 +42,23 @@ function Dashboard() {
   useEffect(() => {
     axios
       .get(`${API_URL}/events`)
-      .then((response) => setEvents(response.data.data))
-      .catch(() => setError("Couldn't load events. Check that your backend is running."))
+      .then((response) => {
+        const allEvents = response.data.data || [];
+
+        // Show only events owned by the signed-in organizer.
+        const myEvents = allEvents.filter(
+          (event) =>
+            event.createdBy &&
+            String(event.createdBy._id || event.createdBy) === String(user?.id || user?._id)
+        );
+
+        setEvents(myEvents);
+      })
+      .catch(() =>
+        setError("Couldn't load events. Check that your backend is running.")
+      )
       .finally(() => setLoading(false));
-  }, []);
+  }, [user]);
 
 
   
@@ -61,17 +76,36 @@ const handleCreateEvent = async (e) => {
       capacity: Number(newEvent.capacity),
     };
 
+    const authConfig = {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    };
+
     if (editingEvent) {
       await axios.patch(
         `${API_URL}/events/${editingEvent._id}`,
-        payload
+        payload,
+        authConfig
       );
     } else {
-      await axios.post(`${API_URL}/events`, payload);
+      await axios.post(
+        `${API_URL}/events`,
+        payload,
+        authConfig
+      );
     }
 
     const response = await axios.get(`${API_URL}/events`);
-    setEvents(response.data.data);
+    const allEvents = response.data.data || [];
+
+    setEvents(
+      allEvents.filter(
+        (event) =>
+          event.createdBy &&
+          String(event.createdBy._id || event.createdBy) === String(user?.id || user?._id)
+      )
+    );
 
     setShowCreateForm(false);
     setEditingEvent(null);
@@ -143,10 +177,24 @@ const handleCreateEvent = async (e) => {
       <main className="dashboard-main">
         <header className="dashboard-topbar">
           <span>EventEase / Workspace</span>
-          <span className="dashboard-profile">
-            <span className="dashboard-avatar">O</span>
-            Organizer
-          </span>
+
+          <div className="dashboard-profile">
+            <span className="dashboard-avatar">
+              {user?.name?.charAt(0)?.toUpperCase() || "O"}
+            </span>
+            <span>{user?.name || "Organizer"}</span>
+
+            <button
+              type="button"
+              onClick={() => {
+                logout();
+                window.location.href = "/";
+              }}
+              className="dashboard-logout-button"
+            >
+              Log out
+            </button>
+          </div>
         </header>
 
         <section className="dashboard-welcome">
@@ -307,7 +355,11 @@ const handleCreateEvent = async (e) => {
                         if (!confirmed) return;
 
                         try {
-                          await axios.delete(`${API_URL}/events/${event._id}`);
+                          await axios.delete(`${API_URL}/events/${event._id}`, {
+                            headers: {
+                              Authorization: `Bearer ${token}`,
+                            },
+                          });
 
                           setEvents((currentEvents) =>
                             currentEvents.filter((item) => item._id !== event._id)

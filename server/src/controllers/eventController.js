@@ -63,6 +63,7 @@ export const createEvent = async (req, res) => {
       venue,
       date,
       organizer,
+      createdBy: req.user._id,
       capacity,
     });
 
@@ -218,6 +219,13 @@ export const getEventAttendees = async (req, res) => {
       });
     }
 
+    if (!event.createdBy || String(event.createdBy) !== String(req.user._id)) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not authorized to view these attendees",
+      });
+    }
+
     const attendees = await Registration.find({ event: id })
       .select("name email createdAt")
       .sort({ createdAt: 1 });
@@ -282,6 +290,16 @@ export const updateEvent = async (req, res) => {
     }
 
     if (
+      !event.createdBy ||
+      event.createdBy.toString() !== req.user._id.toString()
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not authorized to update this event",
+      });
+    }
+
+    if (
       updates.capacity !== undefined &&
       updates.capacity < event.registeredCount
     ) {
@@ -333,6 +351,16 @@ export const deleteEvent = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Event not found",
+      });
+    }
+
+    if (
+      event.createdBy &&
+      event.createdBy.toString() !== req.user._id.toString()
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not authorized to delete this event",
       });
     }
 

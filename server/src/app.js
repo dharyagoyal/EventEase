@@ -1,6 +1,7 @@
-import eventRoutes from "./routes/eventRoutes.js";
 import express from "express";
 import cors from "cors";
+import eventRoutes from "./routes/eventRoutes.js";
+import authRoutes from "./routes/authRoutes.js";
 
 const app = express();
 
@@ -12,6 +13,7 @@ app.use(
 
 app.use(express.json());
 
+app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/events", eventRoutes);
 
 app.get("/api/health", (req, res) => {

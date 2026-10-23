@@ -1,4 +1,4 @@
-
+import { useAuth } from "../context/AuthContext.jsx";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import axios from "axios";
@@ -17,6 +17,7 @@ const API_URL = (
 
 function Attendees() {
   const { id } = useParams();
+  const { token } = useAuth();
 
   const [event, setEvent] = useState(null);
   const [attendees, setAttendees] = useState([]);
@@ -34,7 +35,11 @@ function Attendees() {
       try {
         const [eventResponse, attendeeResponse] = await Promise.all([
           axios.get(`${API_URL}/events/${id}`),
-          axios.get(`${API_URL}/events/${id}/attendees`),
+          axios.get(`${API_URL}/events/${id}/attendees`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }),
         ]);
 
         if (!active) return;
@@ -65,7 +70,7 @@ function Attendees() {
     return () => {
       active = false;
     };
-  }, [id]);
+  }, [id, token]);
 
   const filteredAttendees = attendees.filter((attendee) =>
     `${attendee.name} ${attendee.email}`

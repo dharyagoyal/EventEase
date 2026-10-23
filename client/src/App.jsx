@@ -1,4 +1,5 @@
-
+import { Link } from "react-router-dom";
+import { useAuth } from "./context/AuthContext.jsx";
 import { useEffect, useState } from "react";
 import { CalendarDays, MapPin, Search, Sparkles, ArrowUpRight } from "lucide-react";
 import axios from "axios";
@@ -9,6 +10,7 @@ const API_URL = (
 ).replace(/\/$/, "");
 
 function App() {
+  const { isAuthenticated } = useAuth();
   const [events, setEvents] = useState([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -37,19 +39,25 @@ function App() {
   return (
     <div className="app-shell">
       <nav className="navbar">
-        <a className="brand" href="/">
+        <Link className="brand" to="/">
           <span className="brand-icon"><Sparkles size={20} /></span>
           eventease<span className="brand-dot">.</span>
-        </a>
+        </Link>
 
         <div className="nav-links">
           <a href="#events">Explore events</a>
           <a href="#about">About</a>
         </div>
 
-        <a className="nav-cta" href="#events">
-          Find your next event <ArrowUpRight size={16} />
-        </a>
+        <div className="nav-actions">
+          <Link className="nav-organizer-link" to={isAuthenticated ? "/dashboard" : "/login"}>
+            {isAuthenticated ? "Organizer dashboard" : "Organize events"}
+          </Link>
+
+          <a className="nav-cta" href="#events">
+            Find your next event <ArrowUpRight size={16} />
+          </a>
+        </div>
       </nav>
 
       <main>
