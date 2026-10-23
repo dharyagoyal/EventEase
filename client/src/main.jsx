@@ -4,6 +4,7 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import App from "./App.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
+import MyEvents from "./pages/MyEvents.jsx";
 import Attendees from "./pages/Attendees.jsx";
 import { AuthProvider } from "./context/AuthContext.jsx";
 import "./index.css";
@@ -20,6 +21,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
 
           <Route element={<ProtectedRoute />}>
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/dashboard/events" element={<MyEvents />} />
             <Route path="/dashboard/events/:id" element={<Attendees />} />
           </Route>
         </Routes>

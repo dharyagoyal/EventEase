@@ -12,6 +12,8 @@ import {
   Trash2,
   Loader2,
 } from "lucide-react";
+import DashboardSidebar from "../components/DashboardSidebar.jsx";
+import DashboardTopbar from "../components/DashboardTopbar.jsx";
 
 const API_URL = (
   import.meta.env.VITE_API_URL || "http://localhost:5000/api/v1"
@@ -147,40 +149,10 @@ function Attendees() {
 
   return (
     <div className="dashboard-shell">
-      <aside className="dashboard-sidebar">
-        <Link to="/" className="brand">
-          <span className="brand-icon">✦</span>
-          EventEase<span className="brand-dot">.</span>
-        </Link>
-
-        <div className="dashboard-nav-label">WORKSPACE</div>
-
-        <Link to="/dashboard" className="dashboard-nav-item">
-          <CalendarDays size={18} />
-          Overview
-        </Link>
-
-        <div className="dashboard-nav-item active">
-          <Users size={18} />
-          Attendees
-        </div>
-
-        <div className="dashboard-sidebar-bottom">
-          <Link to="/dashboard" className="dashboard-back-link">
-            <ArrowLeft size={16} />
-            Back to dashboard
-          </Link>
-        </div>
-      </aside>
+      <DashboardSidebar />
 
       <main className="dashboard-main">
-        <header className="dashboard-topbar">
-          <span>EventEase / Attendees</span>
-          <span className="dashboard-profile">
-            <span className="dashboard-avatar">O</span>
-            Organizer
-          </span>
-        </header>
+        <DashboardTopbar breadcrumb="EventEase / Attendees" />
 
         <section className="dashboard-welcome">
           <div>
@@ -191,7 +163,7 @@ function Attendees() {
             </p>
           </div>
 
-          <Link to="/dashboard" className="dashboard-back-link">
+          <Link to="/dashboard/events" className="dashboard-back-link">
             <ArrowLeft size={16} />
             Back to events
           </Link>
