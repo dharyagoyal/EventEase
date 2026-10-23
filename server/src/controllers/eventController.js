@@ -1,5 +1,49 @@
 import mongoose from "mongoose";
 import Event from "../models/Event.js";
+import Registration from "../models/Registration.js";
+
+const USN_REGEX = /^1BM\d{2}[A-Z]{2}\d{3}$/i;
+const PHONE_REGEX = /^\d{10}$/;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function validatePerson({ name, email, usn, phone, yearOfStudy }, label) {
+  const prefix = label ? `${label}: ` : "";
+
+  if (typeof name !== "string" || !name.trim()) {
+    return `${prefix}name is required`;
+  }
+  if (name.trim().length > 100) {
+    return `${prefix}name cannot exceed 100 characters`;
+  }
+
+  if (
+    typeof email !== "string" ||
+    !email.trim() ||
+    !EMAIL_REGEX.test(email.trim())
+  ) {
+    return `${prefix}enter a valid email address`;
+  }
+  if (email.trim().length > 254) {
+    return `${prefix}email cannot exceed 254 characters`;
+  }
+
+  if (typeof usn !== "string" || !usn.trim() || !USN_REGEX.test(usn.trim())) {
+    return `${prefix}invalid USN`;
+  }
+
+  const phoneStr =
+    phone !== undefined && phone !== null ? String(phone).trim() : "";
+  if (!PHONE_REGEX.test(phoneStr)) {
+    return `${prefix}invalid phone number (must be 10 digits)`;
+  }
+
+  const yearNum = Number(yearOfStudy);
+  if (!Number.isInteger(yearNum) || yearNum < 1 || yearNum > 4) {
+    return `${prefix}year of study must be between 1 and 4`;
+  }
+
+  return null;
+}
 
 // GET /api/v1/events — List all events
 export const getEvents = async (req, res) => {
@@ -55,7 +99,40 @@ export const getEventById = async (req, res) => {
 // POST /api/v1/events — Create an event
 export const createEvent = async (req, res) => {
   try {
-    const { title, description, venue, date, organizer, capacity } = req.body;
+    const {
+      title,
+      description,
+      venue,
+      date,
+      organizer,
+      capacity,
+      isTeamEvent = false,
+      minTeamSize = 1,
+      maxTeamSize = 1,
+    } = req.body;
+
+    const teamEvent = Boolean(isTeamEvent);
+    let minSize = 1;
+    let maxSize = 1;
+
+    if (teamEvent) {
+      minSize = Number(minTeamSize);
+      maxSize = Number(maxTeamSize);
+
+      if (
+        !Number.isInteger(minSize) ||
+        !Number.isInteger(maxSize) ||
+        minSize < 2 ||
+        maxSize > 10 ||
+        minSize > maxSize
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "For team events, team size must satisfy: 2 <= minTeamSize <= maxTeamSize <= 10",
+        });
+      }
+    }
 
     const event = await Event.create({
       title,
@@ -65,6 +142,9 @@ export const createEvent = async (req, res) => {
       organizer,
       createdBy: req.user._id,
       capacity,
+      isTeamEvent: teamEvent,
+      minTeamSize: minSize,
+      maxTeamSize: maxSize,
     });
 
     res.status(201).json({
@@ -87,13 +167,19 @@ export const createEvent = async (req, res) => {
   }
 };
 
-import Registration from "../models/Registration.js";
-
 // POST /api/v1/events/:id/register
 export const registerForEvent = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, email } = req.body;
+    const {
+      name,
+      email,
+      usn,
+      phone,
+      yearOfStudy,
+      teamName,
+      teamMembers,
+    } = req.body;
 
     if (!mongoose.isValidObjectId(id)) {
       return res.status(400).json({
@@ -102,47 +188,245 @@ export const registerForEvent = async (req, res) => {
       });
     }
 
-    if (
-      typeof name !== "string" ||
-      !name.trim() ||
-      typeof email !== "string" ||
-      !email.trim()
-    ) {
-      return res.status(400).json({
+    const event = await Event.findById(id);
+
+    if (!event) {
+      return res.status(404).json({
         success: false,
-        message: "Name and email are required",
+        message: "Event not found",
       });
     }
 
-    const normalizedEmail = email.trim().toLowerCase();
+    if (event.date <= new Date()) {
+      return res.status(400).json({
+        success: false,
+        message: "Registration for this event has closed",
+      });
+    }
 
-    const event = await Event.findOneAndUpdate(
+    if (event.registeredCount >= event.capacity) {
+      return res.status(409).json({
+        success: false,
+        message: "Sorry, this event is full",
+      });
+    }
+
+    const registrantLabel = event.isTeamEvent ? "Team Leader" : "Registrant";
+    const registrantError = validatePerson(
+      { name, email, usn, phone, yearOfStudy },
+      registrantLabel
+    );
+    if (registrantError) {
+      return res.status(400).json({
+        success: false,
+        message: registrantError,
+      });
+    }
+
+    let cleanedTeamMembers = [];
+    let cleanedTeamName;
+
+    if (event.isTeamEvent) {
+      if (
+        typeof teamName !== "string" ||
+        teamName.trim().length < 2 ||
+        teamName.trim().length > 50
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Team name is required and must be between 2 and 50 characters",
+        });
+      }
+      cleanedTeamName = teamName.trim();
+
+      if (!Array.isArray(teamMembers)) {
+        return res.status(400).json({
+          success: false,
+          message: "teamMembers array is required for team events",
+        });
+      }
+
+      const totalTeamSize = 1 + teamMembers.length;
+      const minTeamSize = event.minTeamSize || 2;
+      const maxTeamSize = event.maxTeamSize || 10;
+
+      if (totalTeamSize < minTeamSize || totalTeamSize > maxTeamSize) {
+        return res.status(400).json({
+          success: false,
+          message:
+            minTeamSize === maxTeamSize
+              ? `Team size must be exactly ${minTeamSize} members (including the team leader). Currently have ${totalTeamSize}.`
+              : `Team size must be between ${minTeamSize} and ${maxTeamSize} members (including the team leader). Currently have ${totalTeamSize}.`,
+        });
+      }
+
+      for (let i = 0; i < teamMembers.length; i++) {
+        const member = teamMembers[i];
+        const memberLabel = `Member ${i + 2}`;
+
+        if (!member || typeof member !== "object") {
+          return res.status(400).json({
+            success: false,
+            message: `${memberLabel}: details are required`,
+          });
+        }
+
+        const memberError = validatePerson(member, memberLabel);
+        if (memberError) {
+          return res.status(400).json({
+            success: false,
+            message: memberError,
+          });
+        }
+
+        cleanedTeamMembers.push({
+          name: member.name.trim(),
+          email: member.email.trim().toLowerCase(),
+          usn: member.usn.trim().toUpperCase(),
+          phone: String(member.phone).trim(),
+          yearOfStudy: Number(member.yearOfStudy),
+        });
+      }
+    } else {
+      if (
+        (typeof teamName === "string" && teamName.trim().length > 0) ||
+        (Array.isArray(teamMembers) && teamMembers.length > 0)
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "This is an individual event; teamName and teamMembers are not allowed",
+        });
+      }
+      cleanedTeamMembers = [];
+      cleanedTeamName = undefined;
+    }
+
+    // Duplicate checks within submission
+    const submissionEmails = [
+      { email: email.trim().toLowerCase(), label: registrantLabel },
+      ...cleanedTeamMembers.map((m, idx) => ({
+        email: m.email,
+        label: `Member ${idx + 2}`,
+      })),
+    ];
+
+    const submissionUsns = [
+      { usn: usn.trim().toUpperCase(), label: registrantLabel },
+      ...cleanedTeamMembers.map((m, idx) => ({
+        usn: m.usn,
+        label: `Member ${idx + 2}`,
+      })),
+    ];
+
+    const seenEmails = new Map();
+    for (const item of submissionEmails) {
+      if (seenEmails.has(item.email)) {
+        return res.status(400).json({
+          success: false,
+          message: `Duplicate email within submission: ${item.email} is used by both ${seenEmails.get(item.email)} and ${item.label}`,
+        });
+      }
+      seenEmails.set(item.email, item.label);
+    }
+
+    const seenUsns = new Map();
+    for (const item of submissionUsns) {
+      if (seenUsns.has(item.usn)) {
+        return res.status(400).json({
+          success: false,
+          message: `Duplicate USN within submission: ${item.usn} is used by both ${seenUsns.get(item.usn)} and ${item.label}`,
+        });
+      }
+      seenUsns.set(item.usn, item.label);
+    }
+
+    // Duplicate checks against database for this event
+    const emailList = submissionEmails.map((item) => item.email);
+    const usnList = submissionUsns.map((item) => item.usn);
+
+    const existingRegistration = await Registration.findOne({
+      event: id,
+      $or: [
+        { email: { $in: emailList } },
+        { "teamMembers.email": { $in: emailList } },
+        { usn: { $in: usnList } },
+        { "teamMembers.usn": { $in: usnList } },
+      ],
+    });
+
+    if (existingRegistration) {
+      const existingEmails = new Set(
+        [
+          existingRegistration.email?.toLowerCase(),
+          ...(existingRegistration.teamMembers || []).map((m) =>
+            m.email?.toLowerCase()
+          ),
+        ].filter(Boolean)
+      );
+
+      const existingUsns = new Set(
+        [
+          existingRegistration.usn?.toUpperCase(),
+          ...(existingRegistration.teamMembers || []).map((m) =>
+            m.usn?.toUpperCase()
+          ),
+        ].filter(Boolean)
+      );
+
+      const duplicateEmail = submissionEmails.find((item) =>
+        existingEmails.has(item.email)
+      );
+      if (duplicateEmail) {
+        return res.status(409).json({
+          success: false,
+          message: `Email '${duplicateEmail.email}' is already registered for this event`,
+        });
+      }
+
+      const duplicateUsn = submissionUsns.find((item) =>
+        existingUsns.has(item.usn)
+      );
+      if (duplicateUsn) {
+        return res.status(409).json({
+          success: false,
+          message: `USN '${duplicateUsn.usn}' is already registered for this event`,
+        });
+      }
+
+      return res.status(409).json({
+        success: false,
+        message:
+          "A participant in this submission is already registered for this event",
+      });
+    }
+
+    // Atomic capacity check and seat increment
+    const updatedEvent = await Event.findOneAndUpdate(
       {
         _id: id,
         date: { $gt: new Date() },
         $expr: { $lt: ["$registeredCount", "$capacity"] },
       },
       { $inc: { registeredCount: 1 } },
-      { new: true },
+      { returnDocument: "after" }
     );
 
-    if (!event) {
-      const existingEvent = await Event.findById(id);
-
-      if (!existingEvent) {
+    if (!updatedEvent) {
+      const currentEvent = await Event.findById(id);
+      if (!currentEvent) {
         return res.status(404).json({
           success: false,
           message: "Event not found",
         });
       }
-
-      if (existingEvent.date <= new Date()) {
+      if (currentEvent.date <= new Date()) {
         return res.status(400).json({
           success: false,
           message: "Registration for this event has closed",
         });
       }
-
       return res.status(409).json({
         success: false,
         message: "Sorry, this event is full",
@@ -153,7 +437,12 @@ export const registerForEvent = async (req, res) => {
       const registration = await Registration.create({
         event: id,
         name: name.trim(),
-        email: normalizedEmail,
+        email: email.trim().toLowerCase(),
+        usn: usn.trim().toUpperCase(),
+        phone: String(phone).trim(),
+        yearOfStudy: Number(yearOfStudy),
+        teamName: cleanedTeamName,
+        teamMembers: cleanedTeamMembers,
       });
 
       return res.status(201).json({
@@ -161,21 +450,21 @@ export const registerForEvent = async (req, res) => {
         message: "Registration successful",
         data: {
           registration,
-          registeredCount: event.registeredCount,
-          remainingSeats: event.capacity - event.registeredCount,
+          registeredCount: updatedEvent.registeredCount,
+          remainingSeats: updatedEvent.capacity - updatedEvent.registeredCount,
         },
       });
     } catch (error) {
-      // Roll back the reserved seat if registration fails.
+      // Roll back the reserved seat if registration fails
       await Event.updateOne(
         { _id: id, registeredCount: { $gt: 0 } },
-        { $inc: { registeredCount: -1 } },
+        { $inc: { registeredCount: -1 } }
       );
 
       if (error.code === 11000) {
         return res.status(409).json({
           success: false,
-          message: "This email is already registered for the event",
+          message: "This email or USN is already registered for the event",
         });
       }
 
@@ -227,7 +516,7 @@ export const getEventAttendees = async (req, res) => {
     }
 
     const attendees = await Registration.find({ event: id })
-      .select("name email createdAt")
+      .select("name email usn phone yearOfStudy teamName teamMembers createdAt")
       .sort({ createdAt: 1 });
 
     res.status(200).json({
@@ -263,6 +552,9 @@ export const updateEvent = async (req, res) => {
       "date",
       "organizer",
       "capacity",
+      "isTeamEvent",
+      "minTeamSize",
+      "maxTeamSize",
     ];
 
     const updates = {};
@@ -307,6 +599,43 @@ export const updateEvent = async (req, res) => {
         success: false,
         message: "Capacity cannot be lower than current registrations",
       });
+    }
+
+    const finalIsTeamEvent =
+      updates.isTeamEvent !== undefined
+        ? Boolean(updates.isTeamEvent)
+        : event.isTeamEvent;
+
+    if (finalIsTeamEvent) {
+      const finalMinTeamSize =
+        updates.minTeamSize !== undefined
+          ? Number(updates.minTeamSize)
+          : event.minTeamSize;
+      const finalMaxTeamSize =
+        updates.maxTeamSize !== undefined
+          ? Number(updates.maxTeamSize)
+          : event.maxTeamSize;
+
+      if (
+        !Number.isInteger(finalMinTeamSize) ||
+        !Number.isInteger(finalMaxTeamSize) ||
+        finalMinTeamSize < 2 ||
+        finalMaxTeamSize > 10 ||
+        finalMinTeamSize > finalMaxTeamSize
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "For team events, team size must satisfy: 2 <= minTeamSize <= maxTeamSize <= 10",
+        });
+      }
+      updates.minTeamSize = finalMinTeamSize;
+      updates.maxTeamSize = finalMaxTeamSize;
+      updates.isTeamEvent = true;
+    } else if (updates.isTeamEvent === false) {
+      updates.minTeamSize = 1;
+      updates.maxTeamSize = 1;
+      updates.isTeamEvent = false;
     }
 
     Object.assign(event, updates);
@@ -473,6 +802,11 @@ export const removeEventAttendee = async (req, res) => {
             event: registration.event,
             name: registration.name,
             email: registration.email,
+            usn: registration.usn,
+            phone: registration.phone,
+            yearOfStudy: registration.yearOfStudy,
+            teamName: registration.teamName,
+            teamMembers: registration.teamMembers,
           });
         } catch (rollbackError) {
           console.error(

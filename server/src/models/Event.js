@@ -12,7 +12,7 @@ const eventSchema = new mongoose.Schema(
       type: String,
       required: [true, "Event description is required"],
       trim: true,
-      maxlength: 2000,
+      maxlength: 5000,
     },
     venue: {
       type: String,
@@ -51,6 +51,30 @@ const eventSchema = new mongoose.Schema(
       type: Number,
       default: 0,
       min: 0,
+    },
+    isTeamEvent: {
+      type: Boolean,
+      default: false,
+    },
+    minTeamSize: {
+      type: Number,
+      default: 1,
+      min: [1, "Minimum team size must be at least 1"],
+      max: [10, "Minimum team size cannot exceed 10"],
+      validate: {
+        validator: Number.isInteger,
+        message: "minTeamSize must be a whole number",
+      },
+    },
+    maxTeamSize: {
+      type: Number,
+      default: 1,
+      min: [1, "Maximum team size must be at least 1"],
+      max: [10, "Maximum team size cannot exceed 10"],
+      validate: {
+        validator: Number.isInteger,
+        message: "maxTeamSize must be a whole number",
+      },
     },
   },
   { timestamps: true },
