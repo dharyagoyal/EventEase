@@ -20,7 +20,8 @@ EventEase is a full-stack event management application built with the MERN stack
 ### Organizer Dashboard
 - Organizer login using JWT-based authentication.
 - Create, edit, and delete events.
-- View attendees for events owned by the authenticated organizer.
+- View and remove attendees for events owned by the authenticated organizer.
+- Real-time seat recalculation and capacity updates upon attendee removal.
 - View and manage events associated with the logged-in organizer.
 - Log out and protect dashboard routes from unauthenticated access.
 
@@ -28,9 +29,9 @@ EventEase is a full-stack event management application built with the MERN stack
 - Password hashing using bcrypt.
 - JWT-based authentication with token expiration.
 - Protected organizer management endpoints.
-- Event ownership checks for updates and deletion.
-- Owner-only access to attendee lists.
-- Input validation for event and registration requests.
+- Event ownership checks for updates, deletion, and attendee removal.
+- Owner-only access to view and remove attendees.
+- Input validation for event, attendee removal, and registration requests.
 
 ## Tech Stack
 
