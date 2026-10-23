@@ -1,58 +1,109 @@
-# EventEase
+# EventEase — Event Management Platform
 
-EventEase is a full-stack event management application built with the MERN stack. Users can discover events, register for available seats, and manage events through an organizer dashboard.
+EventEase is a full-stack event management application built with the MERN stack. It allows users to discover events and register for available seats, while authenticated organizers can create and manage their events through a dedicated dashboard.
+
+***Live Demo:** https://event-ease-three-tau.vercel.app/
+
+**Backend API:** https://eventease-api-hyd3.onrender.com
+
+**Repository:** https://github.com/dharyagoyal/EventEase
 
 ## Features
 
-- Browse available events and view event details
-- Register for events using a name and email
-- Prevent duplicate registrations for the same event
-- Enforce event capacity and track remaining seats
-- Create, edit, and delete events
-- View event attendees
-- Validate event details and registration requests
+### Event Discovery and Registration
+- Browse available events and view event details.
+- Register for events using a name and email.
+- Prevent duplicate registrations for the same event.
+- Enforce event capacity and track remaining seats.
+- Validate event details and registration requests.
+
+### Organizer Dashboard
+- Organizer login using JWT-based authentication.
+- Create, edit, and delete events.
+- View attendees for events owned by the authenticated organizer.
+- View and manage events associated with the logged-in organizer.
+- Log out and protect dashboard routes from unauthenticated access.
+
+### Security and Authorization
+- Password hashing using bcrypt.
+- JWT-based authentication with token expiration.
+- Protected organizer management endpoints.
+- Event ownership checks for updates and deletion.
+- Owner-only access to attendee lists.
+- Input validation for event and registration requests.
 
 ## Tech Stack
 
-### Frontend
-- React
-- Vite
-- React Router
-- Axios
-- CSS
+| Layer | Technologies |
+|---|---|
+| Frontend | React, Vite, React Router, Axios, CSS |
+| Backend | Node.js, Express.js |
+| Database | MongoDB, Mongoose |
+| Authentication | JSON Web Tokens (JWT), bcryptjs |
+| Frontend hosting | Vercel |
+| Backend hosting | Render |
+| Database hosting | MongoDB Atlas |
 
-### Backend
-- Node.js
-- Express
-- MongoDB
-- Mongoose
+## Architecture
+
+```text
+                 ┌──────────────────────┐
+                 │      React UI        │
+                 │   Vite + Axios       │
+                 └──────────┬───────────┘
+                            │ HTTP / REST API
+                            ▼
+                 ┌──────────────────────┐
+                 │    Express Server    │
+                 │ Authentication       │
+                 │ Authorization        │
+                 │ Validation           │
+                 └──────────┬───────────┘
+                            │ Mongoose
+                            ▼
+                 ┌──────────────────────┐
+                 │      MongoDB         │
+                 │ Users, Events,       │
+                 │ Registrations        │
+                 └──────────────────────┘
+```
 
 ## Project Structure
 
 ```text
 eventease/
-├── client/          # React frontend
+├── client/
 │   ├── src/
-│   └── .env.example
-├── server/          # Express API
+│   │   ├── components/
+│   │   ├── context/
+│   │   └── pages/
+│   ├── .env.example
+│   └── package.json
+├── server/
 │   ├── src/
-│   └── .env.example
+│   │   ├── controllers/
+│   │   ├── middleware/
+│   │   ├── models/
+│   │   └── routes/
+│   ├── .env.example
+│   └── package.json
 ├── .gitignore
 └── README.md
 ```
 
-## Prerequisites
+## Getting Started
+
+### Prerequisites
 
 - Node.js and npm
 - A MongoDB database, such as MongoDB Atlas
-
-## Local Setup
+- Git
 
 ### 1. Clone the repository
 
 ```bash
-git clone <your-repository-url>
-cd eventease
+git clone https://github.com/dharyagoyal/EventEase.git
+cd EventEase
 ```
 
 ### 2. Configure the backend
@@ -62,7 +113,24 @@ cd server
 npm install
 ```
 
-Create a `.env` file using `.env.example` as a reference and provide your MongoDB connection string.
+Create a `.env` file in the `server/` directory using `.env.example` as a reference.
+
+Configure the required environment variables:
+
+```env
+PORT=5000
+MONGODB_URI=your_mongodb_connection_string
+JWT_SECRET=your_strong_random_secret
+CLIENT_URL=http://localhost:5173
+```
+
+Use the exact database variable name specified in `server/.env.example` if it differs from `MONGODB_URI`.
+
+Generate a strong JWT secret locally rather than using the placeholder:
+
+```bash
+openssl rand -base64 48
+```
 
 Start the backend:
 
@@ -70,18 +138,24 @@ Start the backend:
 npm run dev
 ```
 
-The API runs on port `5000` by default.
+The API runs on `http://localhost:5000` by default.
 
 ### 3. Configure the frontend
 
-Open another terminal from the project root:
+Open a second terminal from the project root:
 
 ```bash
 cd client
 npm install
 ```
 
-Create a `.env` file using `.env.example` as a reference.
+Create a `.env` file in `client/` using `.env.example` as a reference.
+
+Configure the API base URL:
+
+```env
+VITE_API_URL=http://localhost:5000/api/v1
+```
 
 Start the frontend:
 
@@ -89,38 +163,107 @@ Start the frontend:
 npm run dev
 ```
 
-Vite will display the local URL, usually `http://localhost:5173`.
+Open the local URL printed by Vite, usually `http://localhost:5173`.
 
-## API Endpoints
+### 4. Organizer account
 
-Base URL: `/api/v1/events`
+Use the available organizer login flow to access the dashboard. A user account must exist in the database before login can succeed.
+
+For local development, use a test account or create one through the implemented registration endpoint. Never commit real credentials or production secrets to the repository.
+
+## API Documentation
+
+The API uses the `/api/v1` prefix.
+
+### Authentication
 
 | Method | Endpoint | Description |
 |---|---|---|
-| GET | `/` | List events |
-| GET | `/:id` | Get event details |
-| POST | `/` | Create an event |
-| PATCH | `/:id` | Update an event |
-| DELETE | `/:id` | Delete an event |
-| POST | `/:id/register` | Register for an event |
-| GET | `/:id/attendees` | List event attendees |
+| POST | `/auth/register` | Register an account |
+| POST | `/auth/login` | Authenticate an organizer |
 
-Health check: `GET /api/health`
+### Events
+
+| Method | Endpoint | Access |
+|---|---|---|
+| GET | `/events` | Public |
+| GET | `/events/:id` | Public |
+| POST | `/events` | Authenticated organizer |
+| PATCH | `/events/:id` | Authenticated owner |
+| DELETE | `/events/:id` | Authenticated owner |
+| POST | `/events/:id/register` | Public registration |
+| GET | `/events/:id/attendees` | Authenticated event owner |
+
+### Health Check
+
+```http
+GET /api/health
+```
+
+Protected endpoints require a valid bearer token:
+
+```http
+Authorization: Bearer <JWT_TOKEN>
+```
+
+Requests without valid authentication are rejected. Authenticated users cannot modify another organizer's events or view another organizer's attendee list.
 
 ## Available Frontend Scripts
 
-Run these commands inside `client/`:
+Run these commands from `client/`:
 
-- `npm run dev` — Start the development server
-- `npm run build` — Build for production
-- `npm run lint` — Run ESLint
-- `npm run preview` — Preview the production build
+| Command | Description |
+|---|---|
+| `npm run dev` | Start the development server |
+| `npm run build` | Build the production frontend |
+| `npm run lint` | Run ESLint |
+| `npm run preview` | Preview the production build |
 
-## Security Notes
+The backend's available scripts are defined in `server/package.json`.
 
-- Never commit real `.env` files, database credentials, or API secrets.
-- The current application is a prototype. Organizer management endpoints do not yet have authentication or authorization, so they should not be exposed publicly with sensitive data.
-- Configure production environment variables and restrict database network access before deployment.
+## Deployment
+
+### Frontend — Vercel
+
+Configure the production environment variable:
+
+```env
+VITE_API_URL=https://eventease-api-hyd3.onrender.com/api/v1
+```
+
+### Backend — Render
+
+Configure the required backend environment variables:
+
+- MongoDB connection string
+- `JWT_SECRET`
+- `CLIENT_URL=https://event-ease-three-tau.vercel.app`
+- `PORT`, if required by the service configuration
+
+Keep environment variables and credentials out of source control.
+
+### Database — MongoDB Atlas
+
+Configure database access for the backend deployment and use an appropriately restricted database user.
+
+## Security Considerations
+
+- Passwords are hashed before storage.
+- JWTs expire and are required for protected organizer operations.
+- Event ownership is checked server-side; frontend filtering alone is not relied upon for authorization.
+- Attendee information is available only to the event's authenticated owner.
+- Public event discovery and registration are separate from organizer management permissions.
+- Frontend session storage is used for authentication state. A hardened production implementation could consider secure, HttpOnly cookies and additional security controls.
+- Keep secrets out of Git and restrict database network access.
+
+## Future Improvements
+
+- Automated backend and frontend tests.
+- Rate limiting and stronger abuse protection.
+- Pagination and optimized database queries.
+- Improved event search and filtering.
+- More comprehensive deployment monitoring.
+- Enhanced accessibility and mobile UI refinements.
 
 ## License
 
