@@ -167,9 +167,15 @@ Open the local URL printed by Vite, usually `http://localhost:5173`.
 
 ### 4. Organizer account
 
-Use the available organizer login flow to access the dashboard. A user account must exist in the database before login can succeed.
+The frontend provides an organizer login screen (`/login`). To create an organizer account for local testing, send a `POST` request to the registration API endpoint with your test credentials:
 
-For local development, use a test account or create one through the implemented registration endpoint. Never commit real credentials or production secrets to the repository.
+```bash
+curl -sS -X POST http://localhost:5000/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  --data '{"name":"Local Organizer","email":"organizer@example.com","password":"password123"}'
+```
+
+Once created, log in via the web interface at `http://localhost:5173/login` using your email and password to access the dashboard and manage events. Never commit real credentials or production secrets to the repository.
 
 ## API Documentation
 
@@ -193,6 +199,7 @@ The API uses the `/api/v1` prefix.
 | DELETE | `/events/:id` | Authenticated owner |
 | POST | `/events/:id/register` | Public registration |
 | GET | `/events/:id/attendees` | Authenticated event owner |
+| DELETE | `/events/:id/attendees/:attendeeId` | Authenticated event owner |
 
 ### Health Check
 

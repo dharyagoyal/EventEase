@@ -355,7 +355,7 @@ export const deleteEvent = async (req, res) => {
     }
 
     if (
-      event.createdBy &&
+      !event.createdBy ||
       event.createdBy.toString() !== req.user._id.toString()
     ) {
       return res.status(403).json({
