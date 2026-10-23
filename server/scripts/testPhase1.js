@@ -1,4 +1,11 @@
 import "dotenv/config";
+
+// 1. Refuse to run if NODE_ENV is production
+if (process.env.NODE_ENV === "production") {
+  console.error("ERROR: Refusing to run test script in production environment (NODE_ENV=production)");
+  process.exit(1);
+}
+
 import mongoose from "mongoose";
 import app from "../src/app.js";
 import Event from "../src/models/Event.js";
@@ -13,18 +20,21 @@ let server;
 let baseUrl;
 let testUser;
 let testToken;
-let createdEventIds = [];
+const createdEventIds = new Set();
+let isCleaningUp = false;
 
 async function setup() {
   await mongoose.connect(process.env.MONGODB_URI);
-  console.log("Connected to MongoDB for tests");
+  const dbName = mongoose.connection.name;
+  const dbHost = mongoose.connection.host;
+  console.log(`Connected to MongoDB host: '${dbHost}', database: '${dbName}'`);
 
   server = app.listen(0);
   const port = server.address().port;
   baseUrl = `http://localhost:${port}/api/v1`;
   console.log(`Test server running at ${baseUrl}`);
 
-  // Create or find a test organizer user
+  // Create test organizer user
   const email = `test_org_${Date.now()}@example.com`;
   testUser = await User.create({
     name: "Test Organizer",
@@ -35,20 +45,67 @@ async function setup() {
 }
 
 async function teardown() {
-  console.log("Cleaning up test data...");
-  if (createdEventIds.length > 0) {
-    await Registration.deleteMany({ event: { $in: createdEventIds } });
-    await Event.deleteMany({ _id: { $in: createdEventIds } });
+  if (isCleaningUp) return;
+  isCleaningUp = true;
+  console.log("Cleaning up all test events, registrations, and test users...");
+
+  try {
+    if (mongoose.connection.readyState === 1) {
+      // Find all events created by testUser, plus any tracked IDs
+      let allIds = Array.from(createdEventIds);
+      if (testUser) {
+        const userEvents = await Event.find({ createdBy: testUser._id }).distinct("_id");
+        allIds = [...new Set([...allIds, ...userEvents.map((id) => id.toString())])];
+      }
+
+      if (allIds.length > 0) {
+        await Registration.deleteMany({ event: { $in: allIds } });
+        await Event.deleteMany({ _id: { $in: allIds } });
+        console.log(`Cleaned up ${allIds.length} event(s) and their registrations`);
+      }
+
+      if (testUser) {
+        await User.deleteOne({ _id: testUser._id });
+        console.log("Cleaned up test user");
+      }
+    }
+  } catch (cleanErr) {
+    console.error("Error during teardown cleanup:", cleanErr.message);
+  } finally {
+    if (server) {
+      server.close();
+    }
+    if (mongoose.connection.readyState !== 0) {
+      await mongoose.disconnect();
+    }
+    console.log("Cleanup complete and disconnected from MongoDB");
   }
-  if (testUser) {
-    await User.deleteOne({ _id: testUser._id });
-  }
-  if (server) {
-    server.close();
-  }
-  await mongoose.disconnect();
-  console.log("Cleanup complete and disconnected");
 }
+
+// Register process exit listeners for cleanup on unexpected failure
+process.on("SIGINT", async () => {
+  console.log("\nReceived SIGINT. Running teardown...");
+  await teardown();
+  process.exit(1);
+});
+
+process.on("SIGTERM", async () => {
+  console.log("\nReceived SIGTERM. Running teardown...");
+  await teardown();
+  process.exit(1);
+});
+
+process.on("uncaughtException", async (err) => {
+  console.error("\nUncaught Exception. Running teardown:", err);
+  await teardown();
+  process.exit(1);
+});
+
+process.on("unhandledRejection", async (reason) => {
+  console.error("\nUnhandled Rejection. Running teardown:", reason);
+  await teardown();
+  process.exit(1);
+});
 
 function assert(condition, message) {
   if (!condition) {
@@ -90,7 +147,7 @@ async function runTests() {
     assert(soloEventData.data.minTeamSize === 1, "minTeamSize is 1 for solo event");
     assert(soloEventData.data.maxTeamSize === 1, "maxTeamSize is 1 for solo event");
     const soloEventId = soloEventData.data._id;
-    createdEventIds.push(soloEventId);
+    createdEventIds.add(soloEventId);
 
     // 1b: Team event creation validation: fail if minTeamSize < 2
     const invalidTeamRes1 = await fetch(`${baseUrl}/events`, {
@@ -111,7 +168,6 @@ async function runTests() {
         maxTeamSize: 4,
       }),
     });
-    const invalidTeamData1 = await invalidTeamRes1.json();
     assert(invalidTeamRes1.status === 400, "Fails when minTeamSize < 2 for team event");
 
     // 1c: Team event creation validation: fail if maxTeamSize > 10
@@ -178,7 +234,7 @@ async function runTests() {
     const validTeamData = await validTeamRes.json();
     assert(validTeamRes.status === 201, "Team event created successfully (2-4 members)");
     const teamEventId = validTeamData.data._id;
-    createdEventIds.push(teamEventId);
+    createdEventIds.add(teamEventId);
 
     console.log("\n--- TEST 2: Solo event registration validation ---");
 
@@ -353,7 +409,7 @@ async function runTests() {
     assert(teamTooLarge.status === 400, "Rejects team that is too large (5 members > 4)");
     assert(teamTooLargeData.message.includes("Team size must be between 2 and 4 members"), "Clear error message on too large team");
 
-    // 3d: Member 2 invalid USN error message check: e.g. "Member 2: invalid USN"
+    // 3d: Member 2 invalid USN error message check
     const member2BadUsn = await fetch(`${baseUrl}/events/${teamEventId}/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -379,7 +435,7 @@ async function runTests() {
     assert(member2BadUsn.status === 400, "Rejects member with invalid USN");
     assert(member2BadUsnData.message === "Member 2: invalid USN", `Exact error message matches prompt requirement: '${member2BadUsnData.message}'`);
 
-    // 3e: Duplicate email within the same team submission (leader and member share email)
+    // 3e: Duplicate email within the same team submission
     const teamInternalDupEmail = await fetch(`${baseUrl}/events/${teamEventId}/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -403,7 +459,7 @@ async function runTests() {
     });
     assert(teamInternalDupEmail.status === 400, "Rejects duplicate email within submission");
 
-    // 3f: Duplicate USN within the same team submission (member 2 and member 3 share USN)
+    // 3f: Duplicate USN within the same team submission
     const teamInternalDupUsn = await fetch(`${baseUrl}/events/${teamEventId}/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -547,6 +603,124 @@ async function runTests() {
     const teamDeltaData = await teamDeltaRes.json();
     assert(teamDeltaRes.status === 201, "Team Delta registered successfully (2 members)");
     assert(teamDeltaData.data.registeredCount === 2, "Capacity incremented to 2");
+
+    console.log("\n--- TEST 5: updateEvent guards ---");
+
+    // 5a: Reject reducing capacity below current registeredCount (registeredCount is 2 on teamEventId)
+    const reduceCapacityRes = await fetch(`${baseUrl}/events/${teamEventId}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${testToken}`,
+      },
+      body: JSON.stringify({
+        capacity: 1, // registeredCount is 2
+      }),
+    });
+    const reduceCapacityData = await reduceCapacityRes.json();
+    assert(reduceCapacityRes.status === 400, "Rejects reducing capacity below registered count");
+    assert(reduceCapacityData.message === "Capacity cannot be lower than current registrations", "Exact capacity rejection message");
+
+    // 5b: Reject changing isTeamEvent when registeredCount > 0
+    const changeIsTeamRes = await fetch(`${baseUrl}/events/${teamEventId}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${testToken}`,
+      },
+      body: JSON.stringify({
+        isTeamEvent: false,
+      }),
+    });
+    const changeIsTeamData = await changeIsTeamRes.json();
+    assert(changeIsTeamRes.status === 400, "Rejects changing isTeamEvent on event with registrations");
+    assert(changeIsTeamData.message.includes("Cannot modify team settings"), "Clear error message on isTeamEvent change");
+
+    // 5c: Reject changing minTeamSize when registeredCount > 0
+    const changeMinSizeRes = await fetch(`${baseUrl}/events/${teamEventId}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${testToken}`,
+      },
+      body: JSON.stringify({
+        minTeamSize: 3,
+      }),
+    });
+    const changeMinSizeData = await changeMinSizeRes.json();
+    assert(changeMinSizeRes.status === 400, "Rejects changing minTeamSize on event with registrations");
+    assert(changeMinSizeData.message.includes("Cannot modify team settings"), "Clear error message on minTeamSize change");
+
+    // 5d: Reject changing maxTeamSize when registeredCount > 0
+    const changeMaxSizeRes = await fetch(`${baseUrl}/events/${teamEventId}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${testToken}`,
+      },
+      body: JSON.stringify({
+        maxTeamSize: 3,
+      }),
+    });
+    const changeMaxSizeData = await changeMaxSizeRes.json();
+    assert(changeMaxSizeRes.status === 400, "Rejects changing maxTeamSize on event with registrations");
+    assert(changeMaxSizeData.message.includes("Cannot modify team settings"), "Clear error message on maxTeamSize change");
+
+    // 5e: Allow updating title / venue or increasing capacity on event with registrations
+    const updateTitleRes = await fetch(`${baseUrl}/events/${teamEventId}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${testToken}`,
+      },
+      body: JSON.stringify({
+        title: "Hackathon 2026 - Updated Title",
+        capacity: 20,
+      }),
+    });
+    const updateTitleData = await updateTitleRes.json();
+    assert(updateTitleRes.status === 200, "Allows updating non-team fields (title, increased capacity) on event with registrations");
+    assert(updateTitleData.data.title === "Hackathon 2026 - Updated Title", "Title was updated successfully");
+    assert(updateTitleData.data.capacity === 20, "Capacity was updated to 20");
+
+    // 5f: Allow updating team settings on an event WITHOUT registrations
+    const freshTeamRes = await fetch(`${baseUrl}/events`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${testToken}`,
+      },
+      body: JSON.stringify({
+        title: "Empty Event",
+        description: "Empty test event",
+        venue: "Hall C",
+        date: futureDate,
+        organizer: "CodeIO",
+        capacity: 10,
+        isTeamEvent: true,
+        minTeamSize: 2,
+        maxTeamSize: 5,
+      }),
+    });
+    const freshTeamData = await freshTeamRes.json();
+    const freshTeamId = freshTeamData.data._id;
+    createdEventIds.add(freshTeamId);
+
+    const updateFreshTeamRes = await fetch(`${baseUrl}/events/${freshTeamId}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${testToken}`,
+      },
+      body: JSON.stringify({
+        minTeamSize: 3,
+        maxTeamSize: 6,
+      }),
+    });
+    const updateFreshTeamData = await updateFreshTeamRes.json();
+    assert(updateFreshTeamRes.status === 200, "Allows updating team settings on event without registrations");
+    assert(updateFreshTeamData.data.minTeamSize === 3, "minTeamSize updated to 3");
+    assert(updateFreshTeamData.data.maxTeamSize === 6, "maxTeamSize updated to 6");
 
     console.log("\nALL TESTS PASSED SUCCESSFULLY!\n");
   } catch (err) {

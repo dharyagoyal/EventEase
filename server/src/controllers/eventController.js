@@ -591,14 +591,49 @@ export const updateEvent = async (req, res) => {
       });
     }
 
-    if (
-      updates.capacity !== undefined &&
-      updates.capacity < event.registeredCount
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "Capacity cannot be lower than current registrations",
-      });
+    if (updates.capacity !== undefined) {
+      const parsedCapacity = Number(updates.capacity);
+      if (!Number.isInteger(parsedCapacity) || parsedCapacity < 1) {
+        return res.status(400).json({
+          success: false,
+          message: "Capacity must be a positive whole number",
+        });
+      }
+      if (parsedCapacity < event.registeredCount) {
+        return res.status(400).json({
+          success: false,
+          message: "Capacity cannot be lower than current registrations",
+        });
+      }
+      updates.capacity = parsedCapacity;
+    }
+
+    // Team setting guards if event already has registrations
+    const hasRegistrations = event.registeredCount > 0;
+    if (hasRegistrations) {
+      const isChangingTeamEvent =
+        updates.isTeamEvent !== undefined &&
+        Boolean(updates.isTeamEvent) !== Boolean(event.isTeamEvent);
+
+      const isChangingMinTeamSize =
+        updates.minTeamSize !== undefined &&
+        Number(updates.minTeamSize) !== Number(event.minTeamSize);
+
+      const isChangingMaxTeamSize =
+        updates.maxTeamSize !== undefined &&
+        Number(updates.maxTeamSize) !== Number(event.maxTeamSize);
+
+      if (
+        isChangingTeamEvent ||
+        isChangingMinTeamSize ||
+        isChangingMaxTeamSize
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Cannot modify team settings (isTeamEvent, minTeamSize, maxTeamSize) once an event has registrations",
+        });
+      }
     }
 
     const finalIsTeamEvent =
