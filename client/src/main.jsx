@@ -7,6 +7,7 @@ import Dashboard from "./pages/Dashboard.jsx";
 import Attendees from "./pages/Attendees.jsx";
 import { AuthProvider } from "./context/AuthContext.jsx";
 import "./index.css";
+import "./App.css";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 
 ReactDOM.createRoot(document.getElementById("root")).render(

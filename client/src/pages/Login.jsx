@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { useAuth } from "../context/AuthContext.jsx";
+import "../App.css";
 
 const API_URL = (
   import.meta.env.VITE_API_URL || "http://localhost:5000/api/v1"
@@ -46,8 +47,9 @@ export default function Login() {
   return (
     <main className="login-page">
       <section className="login-card">
-        <Link to="/" className="login-brand">
-          EventEase
+        <Link to="/" className="brand login-brand">
+          <span className="brand-icon">✦</span>
+          EventEase<span className="brand-dot">.</span>
         </Link>
 
         <p className="login-eyebrow">ORGANIZER PORTAL</p>

@@ -151,7 +151,7 @@ const handleCreateEvent = async (e) => {
       <aside className="dashboard-sidebar">
         <Link to="/" className="brand">
           <span className="brand-icon">✦</span>
-          eventease<span className="brand-dot">.</span>
+          EventEase<span className="brand-dot">.</span>
         </Link>
 
         <div className="dashboard-nav-label">WORKSPACE</div>

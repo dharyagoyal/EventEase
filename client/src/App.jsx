@@ -41,7 +41,7 @@ function App() {
       <nav className="navbar">
         <Link className="brand" to="/">
           <span className="brand-icon"><Sparkles size={20} /></span>
-          eventease<span className="brand-dot">.</span>
+          EventEase<span className="brand-dot">.</span>
         </Link>
 
         <div className="nav-links">
@@ -176,7 +176,7 @@ function App() {
       </main>
 
       <footer>
-        <a className="brand footer-brand" href="/">eventease<span className="brand-dot">.</span></a>
+        <a className="brand footer-brand" href="/">EventEase<span className="brand-dot">.</span></a>
         <p>Made for people who love showing up.</p>
         <span>© 2026 EventEase</span>
       </footer>
