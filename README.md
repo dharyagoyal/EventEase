@@ -11,26 +11,39 @@ EventEase is a full-stack event management application built with the MERN stack
 ## Features
 
 ### Event Discovery and Registration
-- Browse available events and view event details.
-- Register for events using a name and email.
-- Prevent duplicate registrations for the same event.
-- Enforce event capacity and track remaining seats.
+- Browse available events with real-time search.
+- Full event details page (`/events/:id`) displaying comprehensive event schedule, venue, capacity, and remaining seats.
+- Extended registration form capturing student details: name, email, USN (University Seat Number), phone number, and year of study (1–4).
+- Team events with variable team size: support for team registrations with configurable team sizes (2–10 members), team name, leader details, and dynamic member inputs.
+- Prevent duplicate registrations for the same event (validating both email and USN across solo attendees, leaders, and team members).
+- Enforce event capacity and track remaining seats in real time.
 - Validate event details and registration requests.
 
 ### Organizer Dashboard
 - Organizer login using JWT-based authentication.
-- Create, edit, and delete events.
-- View and remove attendees for events owned by the authenticated organizer.
+- Analytics overview: high-level workspace summary displaying total events, total registrations, and total seats remaining.
+- Per-event stats: breakdown for each event including capacity, registered count, remaining seats, and fill percentage.
+- Dedicated events management route (`/dashboard/events`) to view, create, edit, and delete events.
+- Team event configuration: create and edit events with configurable team sizes (minTeamSize and maxTeamSize from 2 to 10).
+- View and remove attendees for events owned by the authenticated organizer with team role breakdown.
 - Real-time seat recalculation and capacity updates upon attendee removal.
-- View and manage events associated with the logged-in organizer.
+- CSV export: export attendee lists as CSV (`GET /events/:id/attendees/export`) with sanitized cells, leader/member roles, USN, contact info, and registration dates.
 - Log out and protect dashboard routes from unauthenticated access.
+
+### Frontend Routes
+- `/` — Public event exploration and search
+- `/events/:id` — Full event details page with extended registration form
+- `/login` — Organizer login
+- `/dashboard` — Organizer dashboard with analytics overview and per-event stats
+- `/dashboard/events` — Organizer events management (create, edit, delete events)
+- `/dashboard/events/:id` — Event attendees roster with CSV export and attendee removal
 
 ### Security and Authorization
 - Password hashing using bcrypt.
 - JWT-based authentication with token expiration.
 - Protected organizer management endpoints.
 - Event ownership checks for updates, deletion, and attendee removal.
-- Owner-only access to view and remove attendees.
+- Owner-only access to view, export, and remove attendees.
 - Input validation for event, attendee removal, and registration requests.
 
 ## Tech Stack
@@ -191,18 +204,113 @@ The API uses the `/api/v1` prefix.
 
 ### Events
 
-| Method | Endpoint | Access |
-|---|---|---|
-| GET | `/events` | Public |
-| GET | `/events/analytics/overview` | Authenticated organizer |
-| GET | `/events/:id/attendees/export` | Authenticated event owner |
-| GET | `/events/:id` | Public |
-| POST | `/events` | Authenticated organizer |
-| PATCH | `/events/:id` | Authenticated owner |
-| DELETE | `/events/:id` | Authenticated owner |
-| POST | `/events/:id/register` | Public registration |
-| GET | `/events/:id/attendees` | Authenticated event owner |
-| DELETE | `/events/:id/attendees/:attendeeId` | Authenticated event owner |
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| GET | `/events` | Public | List all upcoming events |
+| GET | `/events/analytics/overview` | Authenticated organizer | Overview analytics (total events, registrations, seats left) and per-event stats |
+| GET | `/events/:id/attendees/export` | Authenticated event owner | Export event attendee list as CSV |
+| GET | `/events/:id` | Public | Full event details by ID |
+| POST | `/events` | Authenticated organizer | Create an event (solo or team event with min/max team size) |
+| PATCH | `/events/:id` | Authenticated owner | Update event details |
+| DELETE | `/events/:id` | Authenticated owner | Delete an event |
+| POST | `/events/:id/register` | Public registration | Register for an event (solo or team) with extended payload |
+| GET | `/events/:id/attendees` | Authenticated event owner | List registered attendees |
+| DELETE | `/events/:id/attendees/:attendeeId` | Authenticated event owner | Remove an attendee |
+
+### Extended Registration Payload
+
+`POST /api/v1/events/:id/register` accepts extended registration details with validation for USN, 10-digit phone number, and year of study (1–4).
+
+#### Solo Registration
+
+```json
+{
+  "name": "Jane Doe",
+  "email": "jane@example.com",
+  "usn": "1BM23CS001",
+  "phone": "9876543210",
+  "yearOfStudy": 3
+}
+```
+
+#### Team Registration
+
+For team events, the submitter is the team leader and includes `teamName` and a `teamMembers` array:
+
+```json
+{
+  "name": "Jane Doe",
+  "email": "jane@example.com",
+  "usn": "1BM23CS001",
+  "phone": "9876543210",
+  "yearOfStudy": 3,
+  "teamName": "Binary Beasts",
+  "teamMembers": [
+    {
+      "name": "John Smith",
+      "email": "john@example.com",
+      "usn": "1BM23CS002",
+      "phone": "9876543211",
+      "yearOfStudy": 3
+    }
+  ]
+}
+```
+
+#### Payload Fields and Validation Rules
+
+| Field | Type | Required | Constraints |
+|---|---|---|---|
+| `name` | String | Yes | Max 100 characters |
+| `email` | String | Yes | Valid email format, max 254 characters, unique per event |
+| `usn` | String | Yes | Format `^1BM\d{2}[A-Z]{2}\d{3}$` (case-insensitive), unique per event |
+| `phone` | String | Yes | Exactly 10 digits (`^\d{10}$`) |
+| `yearOfStudy` | Number | Yes | Integer between 1 and 4 |
+| `teamName` | String | Team events | 2 to 50 characters |
+| `teamMembers` | Array | Team events | Array of member objects each with `name`, `email`, `usn`, `phone`, `yearOfStudy`. Total team size (leader + members) must satisfy `minTeamSize <= size <= maxTeamSize` (2–10). |
+
+### New Endpoints
+
+#### Analytics Overview
+
+```http
+GET /api/v1/events/analytics/overview
+Authorization: Bearer <JWT_TOKEN>
+```
+
+Returns workspace-level aggregate metrics and per-event statistics:
+
+```json
+{
+  "success": true,
+  "totalEvents": 4,
+  "totalRegistrations": 28,
+  "totalSeatsRemaining": 72,
+  "perEvent": [
+    {
+      "_id": "6718cb1d5e62f0a123456789",
+      "title": "Hackathon 2026",
+      "date": "2026-11-15T09:00:00.000Z",
+      "capacity": 50,
+      "registered": 20,
+      "seatsLeft": 30,
+      "fillPercent": 40,
+      "isTeamEvent": true
+    }
+  ]
+}
+```
+
+#### Export Event Attendees CSV
+
+```http
+GET /api/v1/events/:id/attendees/export
+Authorization: Bearer <JWT_TOKEN>
+```
+
+Downloads a UTF-8 encoded CSV file (`<event-slug>-attendees.csv`) containing the attendee roster with formula injection protection:
+- **Headers:** `Team Name,Role,Name,USN,Email,Phone,Year,Registered On`
+- **Role:** `Solo`, `Leader`, or `Member`
 
 ### Health Check
 
@@ -268,12 +376,8 @@ Configure database access for the backend deployment and use an appropriately re
 
 ## Future Improvements
 
-- Automated backend and frontend tests.
-- Rate limiting and stronger abuse protection.
-- Pagination and optimized database queries.
-- Improved event search and filtering.
-- More comprehensive deployment monitoring.
-- Enhanced accessibility and mobile UI refinements.
+- Event posters with a default image.
+- Payment QR with screenshot upload for paid events.
 
 ## License
 
