@@ -611,17 +611,27 @@ export const updateEvent = async (req, res) => {
     // Team setting guards if event already has registrations
     const hasRegistrations = event.registeredCount > 0;
     if (hasRegistrations) {
+      const storedIsTeamEvent = Boolean(event.isTeamEvent);
+      const storedMinTeamSize =
+        event.minTeamSize !== undefined && event.minTeamSize !== null
+          ? Number(event.minTeamSize)
+          : (storedIsTeamEvent ? 2 : 1);
+      const storedMaxTeamSize =
+        event.maxTeamSize !== undefined && event.maxTeamSize !== null
+          ? Number(event.maxTeamSize)
+          : (storedIsTeamEvent ? 2 : 1);
+
       const isChangingTeamEvent =
         updates.isTeamEvent !== undefined &&
-        Boolean(updates.isTeamEvent) !== Boolean(event.isTeamEvent);
+        Boolean(updates.isTeamEvent) !== storedIsTeamEvent;
 
       const isChangingMinTeamSize =
         updates.minTeamSize !== undefined &&
-        Number(updates.minTeamSize) !== Number(event.minTeamSize);
+        Number(updates.minTeamSize) !== storedMinTeamSize;
 
       const isChangingMaxTeamSize =
         updates.maxTeamSize !== undefined &&
-        Number(updates.maxTeamSize) !== Number(event.maxTeamSize);
+        Number(updates.maxTeamSize) !== storedMaxTeamSize;
 
       if (
         isChangingTeamEvent ||

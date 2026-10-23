@@ -683,7 +683,28 @@ async function runTests() {
     assert(updateTitleData.data.title === "Hackathon 2026 - Updated Title", "Title was updated successfully");
     assert(updateTitleData.data.capacity === 20, "Capacity was updated to 20");
 
-    // 5f: Allow updating team settings on an event WITHOUT registrations
+    // 5f: Allow updating with unchanged team settings (isTeamEvent, minTeamSize, maxTeamSize) on event with registrations
+    const updateUnchangedTeamRes = await fetch(`${baseUrl}/events/${teamEventId}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${testToken}`,
+      },
+      body: JSON.stringify({
+        title: "Hackathon 2026 - Unchanged Team Settings",
+        isTeamEvent: true,
+        minTeamSize: 2,
+        maxTeamSize: 4,
+      }),
+    });
+    const updateUnchangedTeamData = await updateUnchangedTeamRes.json();
+    assert(updateUnchangedTeamRes.status === 200, "Allows payload with unchanged isTeamEvent/minTeamSize/maxTeamSize on event with registrations");
+    assert(updateUnchangedTeamData.data.title === "Hackathon 2026 - Unchanged Team Settings", "Title was updated with unchanged team settings");
+    assert(updateUnchangedTeamData.data.isTeamEvent === true, "isTeamEvent remains true");
+    assert(updateUnchangedTeamData.data.minTeamSize === 2, "minTeamSize remains 2");
+    assert(updateUnchangedTeamData.data.maxTeamSize === 4, "maxTeamSize remains 4");
+
+    // 5g: Allow updating team settings on an event WITHOUT registrations
     const freshTeamRes = await fetch(`${baseUrl}/events`, {
       method: "POST",
       headers: {
