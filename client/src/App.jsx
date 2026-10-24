@@ -32,37 +32,37 @@ function App() {
 
   return (
     <div className="app-shell">
-      <nav className="navbar">
-        <Link className="brand" to="/">
-          <span className="brand-icon"><Sparkles size={20} /></span>
-          EventEase<span className="brand-dot">.</span>
-        </Link>
-
-        <div className="nav-links">
-          <a href="#events">Explore events</a>
-          <a href="#about">About</a>
-        </div>
-
-        <div className="nav-actions">
-          <Link className="nav-organizer-link" to={isAuthenticated ? "/dashboard" : "/login"}>
-            {isAuthenticated ? "Organizer dashboard" : "Organize events"}
+      <header className="site-header">
+        <nav className="navbar">
+          <Link className="brand" to="/">
+            eventease<span className="brand-dot">.</span>
           </Link>
 
-          <a className="nav-cta" href="#events">
-            Find your next event <ArrowUpRight size={16} />
-          </a>
-        </div>
-      </nav>
+          <div className="nav-links">
+            <a href="#events">explore events</a>
+            <a href="#about">about</a>
+          </div>
+
+          <div className="nav-actions">
+            <Link className="nav-organizer-link" to={isAuthenticated ? "/dashboard" : "/login"}>
+              Organizer dashboard
+            </Link>
+
+            <a className="nav-cta" href="#events">
+              explore events <ArrowUpRight size={15} />
+            </a>
+          </div>
+        </nav>
+      </header>
 
       <main>
         <section className="hero">
-          <div className="hero-glow" />
           <div className="eyebrow">
             <span className="status-dot" /> YOUR NEXT EXPERIENCE STARTS HERE
           </div>
 
           <h1>
-            Make time for
+            make time for
             <br />
             <span>something amazing.</span>
           </h1>
@@ -73,23 +73,15 @@ function App() {
           </p>
 
           <a className="hero-button" href="#events">
-            Explore events <ArrowUpRight size={18} />
+            explore events <ArrowUpRight size={18} />
           </a>
-
-          <div className="hero-stats">
-            <div><strong>{events.length.toString().padStart(2, "0")}</strong><span>EVENTS</span></div>
-            <div className="stat-divider" />
-            <div><strong>∞</strong><span>POSSIBILITIES</span></div>
-            <div className="stat-divider" />
-            <div><strong>01</strong><span>COMMUNITY</span></div>
-          </div>
         </section>
 
         <section className="events-section" id="events">
           <div className="section-heading">
             <div>
               <div className="section-kicker">THE GOOD STUFF</div>
-              <h2>Find your <span>thing.</span></h2>
+              <h2>find your <span>thing.</span></h2>
               <p>Experiences that bring people and ideas together.</p>
             </div>
 
@@ -123,17 +115,14 @@ function App() {
               <article className="event-card" key={event._id}>
                 <div className="event-art">
                   <span className="event-tag">FEATURED EXPERIENCE</span>
-                  {event.isTeamEvent && (
-                    <span className="event-art-team-badge">Team event</span>
-                  )}
-                  <span className="event-art-icon"><Sparkles size={30} /></span>
+                  <span className="event-art-icon"><Sparkles size={28} /></span>
                   <span className="event-number">EVENT / {event._id.slice(-4).toUpperCase()}</span>
                 </div>
 
                 <div className="event-content">
                   <div className="event-date-row">
                     <div className="event-date">
-                      <CalendarDays size={15} />
+                      <CalendarDays size={14} />
                       {new Date(event.date).toLocaleDateString("en-IN", {
                         day: "numeric",
                         month: "short",
@@ -141,7 +130,7 @@ function App() {
                       })}
                     </div>
                     {event.isTeamEvent && (
-                      <span className="dashboard-team-badge">Team event</span>
+                      <span className="event-team-badge">Team event</span>
                     )}
                   </div>
 
@@ -149,15 +138,15 @@ function App() {
                   <p className="event-description">{event.description}</p>
 
                   <div className="event-meta">
-                    <span><MapPin size={15} />{event.venue}</span>
-                    <span>{Math.max(0, event.capacity - event.registeredCount)} seats left</span>
+                    <span><MapPin size={14} />{event.venue}</span>
+                    <span className="seats-left-mono">{Math.max(0, event.capacity - event.registeredCount)} seats left</span>
                   </div>
 
                   <Link
                     to={`/events/${event._id}`}
                     className="event-button"
                   >
-                    View event <ArrowUpRight size={16} />
+                    View event <ArrowUpRight size={15} />
                   </Link>
                 </div>
               </article>
@@ -172,7 +161,7 @@ function App() {
       </main>
 
       <footer>
-        <a className="brand footer-brand" href="/">EventEase<span className="brand-dot">.</span></a>
+        <a className="brand footer-brand" href="/">eventease<span className="brand-dot">.</span></a>
         <p>Made for people who love showing up.</p>
         <span>© 2026 EventEase</span>
       </footer>
