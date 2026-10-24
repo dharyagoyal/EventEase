@@ -430,12 +430,14 @@ function Attendees() {
             </div>
           )}
 
-          <label className="attendee-search">
+          <label className="attendee-search" htmlFor="attendee-search-input">
             <Search size={18} />
             <input
+              id="attendee-search-input"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search by name, email, USN, or team..."
+              aria-label="Search attendees"
             />
           </label>
 
