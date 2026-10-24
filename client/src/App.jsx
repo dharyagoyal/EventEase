@@ -45,11 +45,11 @@ function App() {
 
           <div className="nav-actions">
             <Link className="nav-organizer-link" to={isAuthenticated ? "/dashboard" : "/login"}>
-              Organizer dashboard
+              organizer dashboard
             </Link>
 
             <a className="nav-cta" href="#events">
-              explore events <ArrowUpRight size={15} />
+              find events <ArrowUpRight size={15} />
             </a>
           </div>
         </nav>
@@ -57,10 +57,6 @@ function App() {
 
       <main>
         <section className="hero">
-          <div className="eyebrow">
-            <span className="status-dot" /> YOUR NEXT EXPERIENCE STARTS HERE
-          </div>
-
           <h1>
             make time for
             <br />
@@ -111,46 +107,52 @@ function App() {
           )}
 
           <div className="event-grid">
-            {filteredEvents.map((event) => (
-              <article className="event-card" key={event._id}>
-                <div className="event-art">
-                  <span className="event-tag">FEATURED EXPERIENCE</span>
-                  <span className="event-art-icon"><Sparkles size={28} /></span>
-                  <span className="event-number">EVENT / {event._id.slice(-4).toUpperCase()}</span>
-                </div>
+            {filteredEvents.map((event) => {
+              const seatsRemaining = Math.max(0, event.capacity - event.registeredCount);
+              return (
+                <article className="event-card" key={event._id}>
+                  <div className="event-art">
+                    <span className="event-art-icon"><Sparkles size={28} /></span>
+                    <span className="event-number">EVENT / {event._id.slice(-4).toUpperCase()}</span>
+                  </div>
 
-                <div className="event-content">
-                  <div className="event-date-row">
-                    <div className="event-date">
-                      <CalendarDays size={14} />
-                      {new Date(event.date).toLocaleDateString("en-IN", {
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                      })}
+                  <div className="event-content">
+                    <div className="event-date-row">
+                      <div className="event-date">
+                        <CalendarDays size={14} />
+                        {new Date(event.date).toLocaleDateString("en-IN", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </div>
+                      {event.isTeamEvent && (
+                        <span className="event-team-badge">Team event</span>
+                      )}
                     </div>
-                    {event.isTeamEvent && (
-                      <span className="event-team-badge">Team event</span>
-                    )}
+
+                    <h3>{event.title}</h3>
+                    <p className="event-description">{event.description}</p>
+
+                    <div className="event-meta">
+                      <span><MapPin size={14} />{event.venue}</span>
+                      {seatsRemaining === 0 ? (
+                        <span className="seats-soldout-mono">sold out</span>
+                      ) : (
+                        <span className="seats-left-mono">{seatsRemaining} seats left</span>
+                      )}
+                    </div>
+
+                    <Link
+                      to={`/events/${event._id}`}
+                      className="event-button"
+                    >
+                      View event <ArrowUpRight size={15} />
+                    </Link>
                   </div>
-
-                  <h3>{event.title}</h3>
-                  <p className="event-description">{event.description}</p>
-
-                  <div className="event-meta">
-                    <span><MapPin size={14} />{event.venue}</span>
-                    <span className="seats-left-mono">{Math.max(0, event.capacity - event.registeredCount)} seats left</span>
-                  </div>
-
-                  <Link
-                    to={`/events/${event._id}`}
-                    className="event-button"
-                  >
-                    View event <ArrowUpRight size={15} />
-                  </Link>
-                </div>
-              </article>
-            ))}
+                </article>
+              );
+            })}
           </div>
         </section>
 
