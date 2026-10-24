@@ -118,7 +118,7 @@ export default function Dashboard() {
 
           <button
             type="button"
-            className="hero-button dashboard-create-button"
+            className="dashboard-create-button"
             onClick={() => {
               setFeedback("");
               setShowCreateModal(true);
@@ -198,7 +198,7 @@ export default function Dashboard() {
               <p>Create your first event to get started.</p>
               <button
                 type="button"
-                className="hero-button dashboard-create-button"
+                className="dashboard-create-button"
                 style={{ marginTop: "16px" }}
                 onClick={() => {
                   setFeedback("");

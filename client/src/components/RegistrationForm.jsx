@@ -649,7 +649,7 @@ export default function RegistrationForm({ event, onRegistrationSuccess }) {
 
       <button
         type="submit"
-        className="hero-button registration-submit-btn"
+        className="registration-submit-btn"
         disabled={submitting}
       >
         {submitting ? (

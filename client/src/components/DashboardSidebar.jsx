@@ -21,21 +21,23 @@ export default function DashboardSidebar() {
 
       <div className="dashboard-nav-label">WORKSPACE</div>
 
-      <Link
-        to="/dashboard"
-        className={`dashboard-nav-item ${isOverview ? "active" : ""}`}
-      >
-        <LayoutDashboard size={18} />
-        Overview
-      </Link>
+      <nav className="dashboard-nav">
+        <Link
+          to="/dashboard"
+          className={`dashboard-nav-item ${isOverview ? "active" : ""}`}
+        >
+          <LayoutDashboard size={18} />
+          Overview
+        </Link>
 
-      <Link
-        to="/dashboard/events"
-        className={`dashboard-nav-item ${isMyEvents ? "active" : ""}`}
-      >
-        <CalendarDays size={18} />
-        My events
-      </Link>
+        <Link
+          to="/dashboard/events"
+          className={`dashboard-nav-item ${isMyEvents ? "active" : ""}`}
+        >
+          <CalendarDays size={18} />
+          My events
+        </Link>
+      </nav>
 
       <div className="dashboard-sidebar-bottom">
         <Link to="/" className="dashboard-back-link">

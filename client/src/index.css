@@ -1,9 +1,7 @@
-@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap");
-
 :root {
-  font-family: "DM Sans", sans-serif;
-  color: #f4f6ff;
-  background: #080b14;
+  font-family: var(--font-body, "Space Grotesk", sans-serif);
+  color: var(--ink, #0F1630);
+  background-color: var(--bg, #ECE8EF);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -18,4 +16,7 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  background-color: var(--bg, #ECE8EF);
+  color: var(--ink, #0F1630);
+  font-family: var(--font-body, "Space Grotesk", sans-serif);
 }

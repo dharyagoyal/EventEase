@@ -5,13 +5,13 @@ export default function DashboardTopbar({ breadcrumb = "EventEase / Workspace" }
 
   return (
     <header className="dashboard-topbar">
-      <span>{breadcrumb}</span>
+      <span className="dashboard-breadcrumb">{breadcrumb}</span>
 
       <div className="dashboard-profile">
         <span className="dashboard-avatar">
           {user?.name?.charAt(0)?.toUpperCase() || "O"}
         </span>
-        <span>{user?.name || "Organizer"}</span>
+        <span className="dashboard-user-name">{user?.name || "Organizer"}</span>
 
         <button
           type="button"

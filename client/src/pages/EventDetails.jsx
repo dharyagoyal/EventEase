@@ -98,32 +98,31 @@ export default function EventDetails() {
   return (
     <div className="app-shell">
       {/* Navigation */}
-      <nav className="navbar">
-        <Link className="brand" to="/">
-          <span className="brand-icon">
-            <Sparkles size={20} />
-          </span>
-          EventEase<span className="brand-dot">.</span>
-        </Link>
-
-        <div className="nav-links">
-          <Link to="/#events">Explore events</Link>
-          <a href="/#about">About</a>
-        </div>
-
-        <div className="nav-actions">
-          <Link
-            className="nav-organizer-link"
-            to={isAuthenticated ? "/dashboard" : "/login"}
-          >
-            {isAuthenticated ? "Organizer dashboard" : "Organize events"}
+      <header className="site-header">
+        <nav className="navbar">
+          <Link className="brand" to="/">
+            eventease<span className="brand-dot">.</span>
           </Link>
 
-          <Link className="nav-cta" to="/#events">
-            Browse events <ArrowUpRight size={16} />
-          </Link>
-        </div>
-      </nav>
+          <div className="nav-links">
+            <Link to="/#events">explore events</Link>
+            <a href="/#about">about</a>
+          </div>
+
+          <div className="nav-actions">
+            <Link
+              className="nav-organizer-link"
+              to={isAuthenticated ? "/dashboard" : "/login"}
+            >
+              organizer dashboard
+            </Link>
+
+            <Link className="nav-cta" to="/#events">
+              find events <ArrowUpRight size={15} />
+            </Link>
+          </div>
+        </nav>
+      </header>
 
       <main className="event-details-main">
         <div className="event-details-container">
@@ -176,7 +175,6 @@ export default function EventDetails() {
               {/* Event Overview Hero */}
               <article className="event-details-hero">
                 <div className="event-details-eyebrow">
-                  <span className="event-tag">FEATURED EXPERIENCE</span>
                   {event.isTeamEvent && (
                     <span className="event-team-badge-large">
                       <Users size={14} />
@@ -200,10 +198,10 @@ export default function EventDetails() {
                 <div className="event-meta-cards-grid">
                   <div className="event-meta-card">
                     <div className="event-meta-icon">
-                      <CalendarDays size={20} />
+                      <CalendarDays size={18} />
                     </div>
                     <div>
-                      <span className="event-meta-label">Date & Time</span>
+                      <span className="event-meta-label">DATE & TIME</span>
                       <strong className="event-meta-value">
                         {new Date(event.date).toLocaleDateString("en-IN", {
                           weekday: "short",
@@ -224,10 +222,10 @@ export default function EventDetails() {
 
                   <div className="event-meta-card">
                     <div className="event-meta-icon">
-                      <MapPin size={20} />
+                      <MapPin size={18} />
                     </div>
                     <div>
-                      <span className="event-meta-label">Venue</span>
+                      <span className="event-meta-label">VENUE</span>
                       <strong className="event-meta-value">{event.venue}</strong>
                       <span className="event-meta-sub">In-person</span>
                     </div>
@@ -235,10 +233,10 @@ export default function EventDetails() {
 
                   <div className="event-meta-card">
                     <div className="event-meta-icon">
-                      <Users size={20} />
+                      <Users size={18} />
                     </div>
                     <div>
-                      <span className="event-meta-label">Organizer</span>
+                      <span className="event-meta-label">ORGANIZER</span>
                       <strong className="event-meta-value">
                         {event.organizer}
                       </strong>
@@ -251,12 +249,12 @@ export default function EventDetails() {
                 <div className="event-capacity-section">
                   <div className="event-capacity-header">
                     <div className="event-capacity-title">
-                      <Clock size={16} />
-                      <strong>Seats availability</strong>
+                      <Clock size={15} />
+                      <span>SEATS AVAILABILITY</span>
                     </div>
                     <span className="event-seats-left-pill">
                       {isSoldOut ? (
-                        <span className="text-soldout">Sold out</span>
+                        <span className="text-soldout">sold out</span>
                       ) : (
                         <span>
                           <strong>{seatsLeft}</strong> {seatsLeft === 1 ? "seat" : "seats"} left
@@ -276,9 +274,7 @@ export default function EventDetails() {
                     aria-valuemax={event.capacity}
                   >
                     <div
-                      className={`capacity-fill ${
-                        isSoldOut ? "capacity-fill-full" : ""
-                      }`}
+                      className="capacity-fill"
                       style={{ width: `${fillPercent}%` }}
                     />
                   </div>
@@ -354,6 +350,7 @@ export default function EventDetails() {
                     <div className="status-card-icon">
                       <Clock size={28} />
                     </div>
+                    <div className="status-card-kicker">REGISTRATION CLOSED</div>
                     <h2>Registration closed</h2>
                     <p>
                       This event took place on{" "}
@@ -373,6 +370,7 @@ export default function EventDetails() {
                     <div className="status-card-icon">
                       <AlertTriangle size={28} />
                     </div>
+                    <div className="status-card-kicker">CAPACITY REACHED</div>
                     <h2>Sold out</h2>
                     <p>
                       All {event.capacity} seats for this event have been filled.
@@ -412,7 +410,7 @@ export default function EventDetails() {
 
       <footer>
         <Link className="brand footer-brand" to="/">
-          EventEase<span className="brand-dot">.</span>
+          eventease<span className="brand-dot">.</span>
         </Link>
         <p>Made for people who love showing up.</p>
         <span>© 2026 EventEase</span>

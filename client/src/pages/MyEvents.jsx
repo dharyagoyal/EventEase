@@ -168,7 +168,7 @@ export default function MyEvents() {
 
           <button
             type="button"
-            className="hero-button dashboard-create-button"
+            className="dashboard-create-button"
             onClick={handleCreate}
           >
             <Plus size={18} />
@@ -202,7 +202,7 @@ export default function MyEvents() {
               <p>Create your first event to get started.</p>
               <button
                 type="button"
-                className="hero-button dashboard-create-button"
+                className="dashboard-create-button"
                 style={{ marginTop: "16px" }}
                 onClick={handleCreate}
               >
