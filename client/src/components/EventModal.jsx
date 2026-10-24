@@ -30,7 +30,7 @@ function EventModalForm({ event, onClose, onSuccess }) {
         description: event.description || "",
         venue: event.venue || "",
         date: formatDateTimeLocal(event.date),
-        organizer: event.organizer || "CodeIO",
+        organizer: event.organizer || "",
         capacity: String(event.capacity ?? "50"),
         isTeamEvent: Boolean(event.isTeamEvent),
         minTeamSize:
@@ -52,7 +52,7 @@ function EventModalForm({ event, onClose, onSuccess }) {
       description: "",
       venue: "",
       date: "",
-      organizer: "CodeIO",
+      organizer: "",
       capacity: "50",
       isTeamEvent: false,
       minTeamSize: "2",
@@ -286,6 +286,8 @@ function EventModalForm({ event, onClose, onSuccess }) {
               <input
                 type="text"
                 value={formData.organizer}
+                placeholder="e.g. Cloud Club"
+                placeholder="e.g. Cloud Club"
                 onChange={(e) =>
                   setFormData({ ...formData, organizer: e.target.value })
                 }
