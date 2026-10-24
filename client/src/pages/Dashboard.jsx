@@ -10,6 +10,7 @@ import { useAuth } from "../context/AuthContext.jsx";
 import DashboardSidebar from "../components/DashboardSidebar.jsx";
 import DashboardTopbar from "../components/DashboardTopbar.jsx";
 import EventModal from "../components/EventModal.jsx";
+import { displayNameFromEmail, greetingForHour } from "../utils/displayName.js";
 
 const API_URL = (
   import.meta.env.VITE_API_URL || "http://localhost:5000/api/v1"
@@ -17,6 +18,8 @@ const API_URL = (
 
 export default function Dashboard() {
   const { token, user } = useAuth();
+  const displayName = displayNameFromEmail(user?.email);
+  const greeting = greetingForHour(new Date().getHours());
   const [analytics, setAnalytics] = useState({
     totalEvents: 0,
     totalRegistrations: 0,
@@ -111,7 +114,7 @@ export default function Dashboard() {
           <div>
             <div className="section-kicker">YOUR WORKSPACE</div>
             <h1>
-              Good evening, <span>{user?.name || "Organizer"}.</span>
+              {greeting}, <span>{displayName}.</span>
             </h1>
             <p>Here's what's happening with your events.</p>
           </div>
